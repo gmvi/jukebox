@@ -1,0 +1,7 @@
+{ "name": "Patchwork",
+  "private": true,
+  "dependencies":
+  { "jquery": "1.10.x",
+    "Bootflat": "2.0.x"
+  }
+}

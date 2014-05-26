@@ -1,0 +1,19 @@
+doctype html
+html(lang = "en")
+  head
+    include includes/head
+    script(src="http://cdn.peerjs.com/0.3/peer.min.js")
+    script(src="/scripts/room.js")
+    script(src="/scripts/room_admin.js") 
+    link(href="/stylesheets/room.css" rel="stylesheet") 
+    script.
+      var room = "#{room}";
+    title= "Patchwork: " + room
+  body
+    include includes/header
+    .page-header.col-md-8.col-md-offset-2
+      h2= "Room: " + room
+        .btn-group.pull-right
+          button#close.btn.btn-danger(type="button") Close Room
+    include includes/room
+    include includes/footer

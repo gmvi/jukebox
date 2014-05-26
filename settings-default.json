@@ -1,0 +1,5 @@
+{
+  "session secret" : "You Should Really Change This",
+  "port" : 5001,
+  "debug" : true
+}
