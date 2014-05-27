@@ -18,9 +18,9 @@ $(document).ready(function()
   $.get("/api/rooms/"+room+"/peer", function(data)
   { peerid = data.peer;
     if (peerid)
-      peer = new Peer(peerid, {host:"localhost", port:9000});
+      peer = new Peer(peerid, {host:"localhost", port:80, path:"/peer"});
     else
-    { peer = new Peer({host:"localhost", port:9000});
+    { peer = new Peer({host:"localhost", port:80, path:"/peer"});
       peer.on('open', function()
       { console.log(peer.id);
         $.ajax({ url: "/api/rooms/"+room+"/peer",

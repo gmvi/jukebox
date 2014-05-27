@@ -7,8 +7,8 @@ var fs            = require('fs'),
     express       = require('express'),
     BodyParser    = require('body-parser'),
     CookieParser  = require('cookie-parser'),
-    SessionParser = require('express-session')/*,
-    PeerServer    = require('peer').PeerServer,
+    SessionParser = require('express-session'),
+    PeerServer    = require('peer').PeerServer/*,
     MongoStore    = require('connect-mongo')(session)*/;
 
 var settings;
@@ -22,6 +22,8 @@ else
 
 var app = express();
 var server = http.createServer(app);
+//TODO: mount PeerServer on /peer instead of a seperate port
+peerserver = new PeerServer({path: '/peer'});
 
 app.set('views', __dirname + '/templates');
 

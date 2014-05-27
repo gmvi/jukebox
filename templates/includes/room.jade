@@ -3,11 +3,12 @@
     each song in songs
       li.list-group-item= song.name
   .input-group
-    span.input-group-btn
-      span.btn.btn-default.btn-file
-        | Choose File
-        input#song(type="file")
-    input#song-disp.form-control(type="text" readonly)
+    span.file-btn
+      span.input-group-btn
+        span.btn.btn-default.btn-file
+          | Choose File
+          input#song(type="file")
+      input#song-disp.form-control(type="text" readonly)
     span.input-group-btn
       button#add-song.btn.btn-primary
         span.glyphicon.glyphicon-plus

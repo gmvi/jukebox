@@ -4,7 +4,7 @@ $(document).ready(function()
 { $.get("/api/rooms/"+room+"/peer", function(data)
   { peerid = data.peer;
     if (peerid)
-    { peer = new Peer({host:"localhost", port:9000});
+    { peer = new Peer({host:"localhost", port:80, path:"/peer"});
       connection = peer.connect(peerid);
     }
     else
