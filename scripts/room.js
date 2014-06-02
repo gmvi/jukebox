@@ -1,7 +1,6 @@
 $(document).ready(function()
-{ $("#song").change(function(e)
-  { var name = "";
-    console.log(Boolean(e.target.files[0]));
+{ $("#song-file").change(function(e)
+  { var name;
     if (e.target.files[0])
     { name = e.target.files[0].name;
       $("#add-song").attr("disabled", false);

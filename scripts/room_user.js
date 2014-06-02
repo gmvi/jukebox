@@ -1,22 +1,18 @@
 var peer;
 var connection;
+var file;
 $(document).ready(function()
 { $.get("/api/rooms/"+room+"/peer", function(data)
   { peerid = data.peer;
     if (peerid)
-    { peer = new Peer({host:"localhost", port:80, path:"/peer"});
+    { peer = new Peer({host: window.location.hostname, port: 5002});
       connection = peer.connect(peerid);
     }
     else
-    { console.log("no host peer to connect to");
+    { throw new Error("no host peer to connect to");
     }
   });
   $("#add-song").click(function(e)
-  { var file = document.getElementById("song").files[0];
-    var reader = new FileReader(file);
-    reader.onload = function(evt) {
-      connection.send(evt.target.result);
-    };
-    reader.readAsBinaryString(file);
+  { file = document.getElementById("song-file").files[0];
   });
 });

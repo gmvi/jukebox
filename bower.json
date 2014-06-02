@@ -3,9 +3,8 @@
   "private": true,
   "dependencies": {
     "jquery": "1.11.x",
-    "Bootflat": "2.0.x",
     "bootstrap": "3.1.x",
     "peerjs": "0.3.x",
-    "polymer": "Polymer/polymer#~0.2.4"
+    "musicmetadata": "0.3.x"
   }
 }

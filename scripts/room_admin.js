@@ -1,4 +1,3 @@
-// room variable has been provided by room.jade
 var peer;
 var connections = {};
 $(document).ready(function()
@@ -13,30 +12,41 @@ $(document).ready(function()
              }
            });
   });
-  // var peer;
-  // var connections = {};
+  $("#add-song").click(function(e)
+  { var file = document.getElementById("song-file").files[0];
+    var reader = new FileReader(file);
+    reader.onload = function(evt) {
+      song = evt.target.result;
+      console.log("song read");
+    };
+    reader.readAsBinaryString(file);
+  });
   $.get("/api/rooms/"+room+"/peer", function(data)
-  { peerid = data.peer;
+  { var peerid = data.peer;
     if (peerid)
-      peer = new Peer(peerid, {host:"localhost", port:80, path:"/peer"});
+    { peer = new Peer(peerid, {host: window.location.hostname, port: 5002});
+      peer.on('error', function (err)
+      { if (err.type == 'unavailable-id')
+        { throw new Error("ID Unavailable");
+        }
+      });
+    }
     else
-    { peer = new Peer({host:"localhost", port:80, path:"/peer"});
+    { peer = new Peer({host: window.location.hostname, port: 5002});
       peer.on('open', function()
       { console.log(peer.id);
         $.ajax({ url: "/api/rooms/"+room+"/peer",
           type: "PUT",
-          data: {"peer": peer.id},
-          success: function(data)
-          { peer.on('connection', function(dataConnection)
-            { connections[dataConnection.peer] = dataConnection;
-              dataConnection.on('data', function(data)
-              { console.log(data);
-              });
-            });
-          }
+          data: {"peer": peer.id}
         });
       });
     }
+    peer.on('connection', function(dataConnection)
+    { connections[dataConnection.peer] = dataConnection;
+      dataConnection.on('data', function(data)
+      { console.log(data);
+      });
+    });
   });
   // window.onbeforeunload = function()
   // { return "Navigating away will close the room!";

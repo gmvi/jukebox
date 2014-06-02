@@ -1,81 +1,88 @@
+var crypto = require("crypto");
+
+function generate_id()
+{ return crypto.pseudoRandomBytes(4).toString('hex');
+}
+
 function Room(name, owner)
-{ ROOM_AVAILABLE = 0;
-  //ROOM_HELD = 1;
-  ROOM_OCCUPIED = 2;
-
-  this.name = name;
-  this.status = owner ? ROOM_OCCUPIED : ROOM_AVAILABLE;
-  this.owner = owner ? owner : "";
-  if (owner) Room.rooms[name] = true;
+{ this.name = name;
+  this.owner = owner;
+  if (name in Room.by_name)
+    throw new Error("a room by that name already exists");
+  Room.by_name[name] = this;
+  Room.by_owner[owner] = this;
   this.songs = [];
-
-  this.check = function check()
-  { if (this.status == ROOM_AVAILABLE)
-      return "";
-    else if (this.status == ROOM_OCCUPIED)
-      return this.owner;
-  }
-  this.create = function create(client)
-  { if (this.check() == "")
-    { this.status = ROOM_OCCUPIED;
-      this.owner = client;
-      this.songs = [];
-      Room.rooms[this.name] = true;
-      return true;
-    }
-    else
-      return false;
-  }
-  this.close = function close()
-  { this.status = ROOM_AVAILABLE;
-    delete Room.rooms[this.name];
-  }
-  this.addSong = function addSong(info)
-  { this.songs.push(new Song(this.name, info));
-  }
 }
-Room.rooms = {};
-
-function Song(room, name)
-{ this.room = room;
-  this.name = name;
-}
-
-var rooms = { };
+Room.by_name = {};
+Room.by_owner = {};
 
 /** functions **/
 module.exports = {};
 
-function GetRoom(name)
-{ if (!(name in rooms))
-    rooms[name] = new Room(name);
-  return rooms[name];
+function GetRoomByName(name)
+{ var room = Room.by_name[name];
+  if (room) return room;
+  else throw new Error("room not found");
 }
 
-module.exports.CheckRoom = function CheckRoom(name)
-{ return GetRoom(name).check();
+module.exports.RoomExists
+    = function RoomExists(name)
+{ var room = Room.by_name[name];
+  return room != undefined;
 }
 
-module.exports.CreateRoom = function CreateRoom(name, peerid)
-{ return GetRoom(name).create(peerid);
+module.exports.GetOwnerByRoomName
+    = function GetOwnerByRoomName(name)
+{ return GetRoomByName(name).owner;
 }
 
-module.exports.CloseRoom = function CloseRoom(name)
-{ return GetRoom(name).close();
+module.exports.GetRoomNameByOwner
+    = function GetRoomNameByOwner(owner)
+{ var room = Room.by_owner[owner];
+  if (room) return room.name;
+  else throw new Error("room not found");
 }
 
-module.exports.GetRooms = function GetRooms()
-{ return Object.keys(Room.rooms);
+module.exports.CreateRoom
+    = function CreateRoom(name, owner)
+{ new Room(name, owner);
 }
 
-module.exports.GetSongs = function GetSongs(name)
-{ return GetRoom(name).songs;
+module.exports.CloseRoom
+    = function CloseRoom(name)
+{ var room = GetRoomByName(name);
+  delete Room.by_name[name];
+  delete Room.by_owner[room.owner];
 }
 
-module.exports.GetPeer = function GetPeer(name)
-{ return GetRoom(name).peer;
+module.exports.GetRooms
+    = function GetRooms(n)
+{ if (n == undefined)
+    return Object.keys(Room.by_name);
+  else
+    return Object.keys(Room.by_name).slice(0, n);
 }
 
-module.exports.SetPeer = function SetPeer(name, peer)
-{ GetRoom(name).peer = peer;
+module.exports.GetSongs
+    = function GetSongs(room)
+{ return GetRoomByName(room).songs;
+}
+
+module.exports.AddSong
+    = function AddSong(room, peer)
+{ var room = GetRoomByName(room);
+  var id = generate_id();
+  var song = "ul://"+peer+"/"+id;
+  room.songs.push(song);
+  return id;
+}
+
+module.exports.GetPeer 
+    = function GetPeer(room)
+{ return GetRoomByName(room).peer;
+}
+
+module.exports.SetPeer 
+    = function SetPeer(room, peer)
+{ GetRoomByName(room).peer = peer;
 }
