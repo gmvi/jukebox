@@ -1,6 +1,12 @@
 var app = require('../app.js');
 var db = require('../db.js');
 
+app.use(function(req, res, next, room) {
+  if (req.session.room) {
+    res.locals.userRoom = req.session.room;
+  }
+})
+
 app.param("room", function(req, res, next, room)
 { res.locals.room = res.room = room;
   next();

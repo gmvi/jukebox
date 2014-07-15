@@ -14,9 +14,14 @@ var database;
 var rooms;
 var users;
 
+var defaultCallback = function (err, result) {
+  if (err) console.log(err);
+}
+
 MongoClient.connect(settings.databaseuri, function(err, database) {
   database = database;
   rooms = database.collection("rooms");
+  rooms.remove({}, defaultCallback);
   users = database.collection("users");
 });
 
@@ -47,10 +52,6 @@ this.GetRoomNameByHost = function GetRoomNameByHost(host, cb)
     else if (res) cb(null, res.name);
     else cb(null, null);
   });
-}
-
-var defaultCallback = function (err, result) {
-  if (err) console.log(err);
 }
 
 // create room on existant room is an error

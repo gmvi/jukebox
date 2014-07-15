@@ -9,12 +9,14 @@ function fail(res, reason, details)
 }
 
 // TODO: rewrite
-app.get('/api/rooms/:room', function api_checkroom(req, res)
+app.get('/api/rooms/:room', function api_checkroom(req, res, next)
 { db.GetRoomByName(req.params.room, function(err, room) {
     if (err) throw err;
     if (room)
       res.send({ "name": room.name,
                  "host": room.host });
+    else
+      next();
   });
 });
 
@@ -32,16 +34,20 @@ app.post('/api/rooms', function api_createroom(req, res)
     });
   });
 });
+
 //here
-app.delete('/api/rooms/:room', function api_deleteroom(req, res)
-{ db.GetHostByRoomName(req.params.room, function(host)
-  { if (host != req.session.userid)
-    { fail(res, "ownership");
+app.delete('/api/rooms/:room', function api_deleteroom(req, res, next)
+{ db.GetRoomByName(req.params.room, function(err, room)
+  { if (room)
+    { if (room.host != req.sessionID)
+        fail(res, "ownership");
+      else
+      { db.CloseRoom(req.params.room);
+        req.session.room = "";
+        res.send({ status: "success" });
+      }
     }
     else
-    { db.CloseRoom(req.params.room);
-      req.session.room = "";
-      res.send({ status: "success" });
-    }
+      next();
   });
 });

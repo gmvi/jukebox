@@ -7,12 +7,16 @@ app.get('/', function view_index(req, res)
   res.render('index');
 });
 
-app.get('/:room', function view_room(req, res)
+app.get('/:room', function view_room(req, res, next)
 { db.GetRoomByName(res.room, function (err, room)
   { if (err) throw err;
-    if (room.owner == req.session.userid)
-      res.render('room_admin');
-    else if (room)
-      res.render('room_user');
+    if (room)
+    { if (room.host == req.sessionID)
+        res.render('room_admin');
+      else
+        res.render('room_user');
+    }
+    else
+      next();
   });
 });
