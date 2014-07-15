@@ -6,25 +6,20 @@ html(lang = "en")
     link(href="/stylesheets/index.css" rel="stylesheet") 
     title Patchwork
   body
-    include includes/header
-    if userRoom
-      .row
-        .col-md-4.col-md-offset-4
-          h3 Your Room
-          div.list-group
-            a.list-group-item(href="/"+userRoom)= userRoom
-    .row
-      .col-md-4.col-md-offset-4
-        h4 Rooms
-        div.list-group
-          - each room in rooms
-            a.list-group-item(href="/"+room)= room
-    unless userRoom
-      .row
-        .col-md-4.col-md-offset-4
-          h5 Create a Room
-          .input-group
-            input#room.form-control(type="text")
-            span.input-group-btn
-              button#create-room.btn.btn-default(type="button" disabled) Create
-    include includes/footer
+    include includes/nav
+    .container
+      if userRoom
+        .row
+          .col-md-4.col-md-offset-4
+            h3 Your Room
+            div.list-group
+              a.list-group-item(href="/"+userRoom)= userRoom
+      unless userRoom
+        .row
+          .col-md-4.col-md-offset-4
+            h5 Create a Room
+            .input-group
+              input#room.form-control(type="text")
+              span.input-group-btn
+                button#create-room.btn.btn-default(type="button" disabled) Create
+      include includes/footer

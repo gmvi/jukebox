@@ -10,8 +10,9 @@ html(lang = "en")
       var room = "#{room}";
     title= "Patchwork: " + room
   body
-    include includes/header
-    .page-header.col-md-8.col-md-offset-2
-      h2= "Room: " + room
-    include includes/room
-    include includes/footer
+    include includes/nav
+    .container
+      .page-header.col-md-8.col-md-offset-2
+        h2= "Room: " + room
+      include includes/room
+      include includes/footer
