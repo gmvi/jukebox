@@ -1,88 +1,70 @@
-var crypto = require("crypto");
+var fs = require('fs');
+var mongo = require('mongodb');
+var MongoClient  = mongo.MongoClient;
 
-function generate_id()
-{ return crypto.pseudoRandomBytes(4).toString('hex');
+var settings;
+if (fs.existsSync(__dirname + "/settings.json"))
+{ settings = require("./settings.json");
+}
+else
+{ settings = require("./settings-default.json");
 }
 
-function Room(name, owner)
-{ this.name = name;
-  this.owner = owner;
-  if (name in Room.by_name)
-    throw new Error("a room by that name already exists");
-  Room.by_name[name] = this;
-  Room.by_owner[owner] = this;
-  this.songs = [];
-}
-Room.by_name = {};
-Room.by_owner = {};
+var database;
+var rooms;
+var users;
 
-/** functions **/
-module.exports = {};
+MongoClient.connect(settings.databaseuri, function(err, database) {
+  database = database;
+  rooms = database.collection("rooms");
+  users = database.collection("users");
+});
 
-function GetRoomByName(name)
-{ var room = Room.by_name[name];
-  if (room) return room;
-  else throw new Error("room not found");
+module.exports = new (function Controller() {
+
+var GetRoomByName = this.GetRoomByName = function GetRoomByName(name, cb)
+{ rooms.findOne({name: name}, cb);
 }
 
-module.exports.RoomExists
-    = function RoomExists(name)
-{ var room = Room.by_name[name];
-  return room != undefined;
+this.RoomExists = function RoomExists(name, cb)
+{ GetRoomByName(name, function (err, res)
+  { if (err) cb(err);
+    else cb(null, Boolean(res));
+  });
 }
 
-module.exports.GetOwnerByRoomName
-    = function GetOwnerByRoomName(name)
-{ return GetRoomByName(name).owner;
+this.GetHostByRoomName = function GetHostByRoomName(name, cb)
+{ GetRoomByName(name, function (err, res)
+  { if (err) cb(err);
+    else if (res) cb(null, res.host);
+    else cb(null, null);
+  });
 }
 
-module.exports.GetRoomNameByOwner
-    = function GetRoomNameByOwner(owner)
-{ var room = Room.by_owner[owner];
-  if (room) return room.name;
-  else throw new Error("room not found");
+this.GetRoomNameByHost = function GetRoomNameByHost(host, cb)
+{ rooms.findOne({host: host}, function (err, res)
+  { if (err) cb(err);
+    else if (res) cb(null, res.name);
+    else cb(null, null);
+  });
 }
 
-module.exports.CreateRoom
-    = function CreateRoom(name, owner)
-{ new Room(name, owner);
+var defaultCallback = function (err, result) {
+  if (err) console.log(err);
 }
 
-module.exports.CloseRoom
-    = function CloseRoom(name)
-{ var room = GetRoomByName(name);
-  delete Room.by_name[name];
-  delete Room.by_owner[room.owner];
+// create room on existant room is an error
+this.CreateRoom = function CreateRoom(name, host, cb)
+{ var roomdoc = { name  : name,
+                  host  : host };
+  rooms.insert(roomdoc, cb || defaultCallback);
 }
 
-module.exports.GetRooms
-    = function GetRooms(n)
-{ if (n == undefined)
-    return Object.keys(Room.by_name);
-  else
-    return Object.keys(Room.by_name).slice(0, n);
+this.CloseRoom = function CloseRoom(name, cb)
+{ rooms.remove({name: name}, cb || defaultCallback);
 }
 
-module.exports.GetSongs
-    = function GetSongs(room)
-{ return GetRoomByName(room).songs;
-}
+// This should really wait for database to be set before returning
+// Fibrous?
 
-module.exports.AddSong
-    = function AddSong(room, peer)
-{ var room = GetRoomByName(room);
-  var id = generate_id();
-  var song = "ul://"+peer+"/"+id;
-  room.songs.push(song);
-  return id;
-}
-
-module.exports.GetPeer 
-    = function GetPeer(room)
-{ return GetRoomByName(room).peer;
-}
-
-module.exports.SetPeer 
-    = function SetPeer(room, peer)
-{ GetRoomByName(room).peer = peer;
-}
+})();

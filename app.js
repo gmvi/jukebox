@@ -3,16 +3,14 @@
 
 var fs           = require('fs'),
     http         = require('http'),
-    jade         = require(  'jade'),
-    peer         = require(    'peer'),
-    express      = require(   'express'),
-    bodyparser   = require( 'body-parser'),
-    cookieparser = require( 'cookie-parser'),
-    session      = require( 'express-session')/*,
-    MongoStore   = require('connect-mongo')(session)*/;
+    jade         = require('jade'),
+    express      = require('express'),
+    bodyparser   = require('body-parser'),
+    cookieparser = require('cookie-parser'),
+    session      = require('express-session'),
+    MongoStore   = require('connect-mongo')(session);
 
-var db  = require('./db.js'),
-    api = require('./api.js');
+var MemoryStore  = session.MemoryStore;
 
 var settings;
 if (fs.existsSync(__dirname + "/settings.json"))
@@ -23,74 +21,47 @@ else
   settings = require("./settings-default.json");
 }
 
-var app = express();
+var dbcontroller = require('./db.js');
+
+var parseCookie = cookieparser();
+
+var sessionStore;
+if (!settings.debug)
+  sessionStore = new MongoStore({ db: database });
+else
+  sessionStore = new MemoryStore();
+var parseSession = session({ secret : settings.sessionsecret,
+                             key    : 'sid',
+                             store  : sessionStore
+                           });
+
+var parseBody = bodyparser(); // for POST url-encoded data
+
+var app = module.exports = express();
 var server = http.createServer(app);
-// The two servers don't collide?? I guess they both use the http module and
-//   are really just one server.
-peerserver = new peer.PeerServer({port: 5002});
+require("./peerserver")(dbcontroller);
 
 app.set('views', __dirname + '/templates');
-
-/*var sessionStore;
-if (settings.debug)
-  sessionStore = undefined;
-else
-  sessionStore = new MongoStore({db: settings.db});*/
+app.set('view engine', 'jade');
 
 //app.use(express.logger());
-app.use(bodyparser()); // for POST url-encoded data
-app.use(cookieparser());
-app.use(session({ secret: settings['session secret'],
-                  name: 'sid'/*,
-                  store:  sessionStore*/
-                }));
+app.use(parseCookie);
+app.use(parseSession);
+app.use(parseBody);
 
 // static folders and files
-function use_static(external, internal)
-{ app.use(external, express.static(__dirname + (internal || external)));
-}
-use_static('/stylesheets');
-use_static('/scripts');
-use_static('/assets');
-use_static('/bower', '/bower_components');
+app.use('/stylesheets', express.static(__dirname + '/stylesheets'));
+app.use('/scripts',     express.static(__dirname + '/scripts'));
+app.use('/assets',      express.static(__dirname + '/assets'));
+app.use('/bower',       express.static(__dirname + '/bower_components'));
 
-api.route(app, db);
-
-/*here*/
-function render(res, view, vars)
-{ res.render(view, vars, function(err, html)
-  { if (err) throw err;
-    res.send(html);
-  });
-}
-
-app.get('/', function view_index(req, res)
-{ var vars = { rooms: db.GetRooms(5),
-               userRoom: req.session.room
-             };
-  render(res, 'index.jade', vars);
+//TODO: put db on a prototype
+app.use(function custom_env_tweaks(req, res, next){
+  req.db = dbcontroller;
+  next();
 });
 
-app.get('/:room', function view_room(req, res)
-{ var room = req.params.room;
-  try
-  { var owner = db.GetOwnerByRoomName(room);
-  }
-  catch (e)
-  { res.status(404);
-    render(res, 'room_not_found.jade', { room: room });
-    return;
-  }
-  if (owner == req.sessionID)
-    render(res, 'room_admin.jade', { room: room,
-                                     songs: db.GetSongs(room) });
-  else if (owner)
-    render(res, 'room_user.jade', { room: room,
-                                    songs: db.GetSongs(room) });
-});
+require('./routes');
 
-app.use(function(req, res, next){
-  res.send(404, 'lolwut?');
-});
-
-server.listen(process.env.PORT || settings['port']);
+console.log("Starting server");
+server.listen(process.env.PORT || 5001);
