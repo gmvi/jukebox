@@ -1,16 +1,8 @@
-var fs = require('fs');
-var mongo = require('mongodb');
-var MongoClient  = mongo.MongoClient;
+var fs = require('fs'),
+    mongo = require('mongodb');
+var MongoClient = mongo.MongoClient;
+var settings = require('./settings');
 
-var settings;
-if (fs.existsSync(__dirname + "/settings.json"))
-{ settings = require("./settings.json");
-}
-else
-{ settings = require("./settings-default.json");
-}
-
-var database;
 var rooms;
 var users;
 
@@ -19,9 +11,9 @@ var defaultCallback = function (err, result) {
 }
 
 MongoClient.connect(settings.databaseuri, function(err, database) {
-  database = database;
   rooms = database.collection("rooms");
-  rooms.remove({}, defaultCallback);
+  if (settings.debug)
+    rooms.remove({}, defaultCallback);
   users = database.collection("users");
 });
 

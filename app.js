@@ -12,16 +12,8 @@ var fs           = require('fs'),
 
 var MemoryStore  = session.MemoryStore;
 
-var settings;
-if (fs.existsSync(__dirname + "/settings.json"))
-{ settings = require("./settings.json");
-}
-else
-{ console.info("Warning: using default settings file");
-  settings = require("./settings-default.json");
-}
-
-var dbcontroller = require('./db.js');
+var settings = require('./settings'),
+    dbcontroller = require('./db');
 
 var parseCookie = cookieparser();
 
