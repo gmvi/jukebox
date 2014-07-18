@@ -1,10 +1,10 @@
 nav.navbar.navbar-default(role="navigation")
- .container-fluid
-  .navbar-header
-   a.navbar-brand(href="/") Patchwork
-  .navbar-collapse.collapse
-   ul.nav.navbar-nav
-    if userRoom
-     li: a(href="/"+userRoom) Your Room
-   ul.nav.navbar-nav.navbar-right
-    li: a(href="/login") Log In
+	.container-fluid
+		.navbar-header
+			a.navbar-brand(href="/") Patchwork
+		.navbar-collapse.collapse
+			ul.nav.navbar-nav
+				if userRoom
+					li: a(href="/"+userRoom) Your Room
+			ul.nav.navbar-nav.navbar-right
+				li: a(href="/login") Log In

@@ -11,11 +11,15 @@ app.get('/login', function log_in(req, res)
   res.redirect(req.query.return_url || "/");
 });
 
+app.get('/logout', function log_out(req, res)
+{ delete req.session.userid;
+})
+
 app.get('/:room', function view_room(req, res, next)
 { db.GetRoomByName(res.room, function (err, room)
   { if (err) throw err;
     if (room)
-    { if (room.host == req.userid)
+    { if (room.host === req.userid)
         res.render('room_admin');
       else
         res.render('room_user');

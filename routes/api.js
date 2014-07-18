@@ -1,11 +1,15 @@
 var app = require('../app.js');
 var db = require('../db.js');
 
-function fail(res, reason, details)
-{ res.status(400);
+function fail(res, reason, details_or_status, status)
+{ if (typeof details_or_status == 'number')
+  { status = details_or_status;
+    details_or_status = undefined;
+  }
+  res.status(status || 400);
   res.send({ status: "failure",
              reason: reason,
-             details: details });
+             details: details_or_status });
 }
 
 // TODO: rewrite
@@ -21,7 +25,9 @@ app.get('/api/rooms/:room', function api_checkroom(req, res, next)
 });
 
 app.post('/api/rooms', function api_createroom(req, res)
-{ if (!req.body.room)
+{ if (!req.session.userid)
+    res.send(401);
+  if (!req.body.room)
     fail(res, "params", "no room param in query string");
   else if (req.session.room)
     fail(res, "multiple", "close your other room and try again");
@@ -40,7 +46,7 @@ app.delete('/api/rooms/:room', function api_deleteroom(req, res, next)
 { db.GetRoomByName(req.params.room, function(err, room)
   { if (room)
     { if (room.host != req.session.userid)
-        fail(res, "ownership");
+        fail(res, "ownership", 401);
       else
       { db.CloseRoom(req.params.room);
         req.session.room = "";
