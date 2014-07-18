@@ -6,20 +6,23 @@ app.get('/', function view_index(req, res)
 });
 
 app.get('/login', function log_in(req, res)
-{ console.log(req.query.return_url);
-  req.session.userid = req.sessionID;
-  res.redirect(req.query.return_url || "/");
+{ req.session.userid = req.sessionID;
+  res.redirect(req.query.return_url || '/');
 });
 
 app.get('/logout', function log_out(req, res)
-{ delete req.session.userid;
+{ if (req.session.room)
+    db.CloseRoom(req.session.room);
+  delete req.session.userid;
+  delete req.session.room;
+  res.redirect(req.query.return_url || '/')
 })
 
 app.get('/:room', function view_room(req, res, next)
 { db.GetRoomByName(res.room, function (err, room)
   { if (err) throw err;
     if (room)
-    { if (room.host === req.userid)
+    { if (room.host === req.session.userid)
         res.render('room_admin');
       else
         res.render('room_user');

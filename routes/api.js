@@ -26,7 +26,7 @@ app.get('/api/rooms/:room', function api_checkroom(req, res, next)
 
 app.post('/api/rooms', function api_createroom(req, res)
 { if (!req.session.userid)
-    res.send(401);
+    return res.send(401);
   if (!req.body.room)
     fail(res, "params", "no room param in query string");
   else if (req.session.room)

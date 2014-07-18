@@ -1,11 +1,14 @@
 var app = require('../app.js');
 var db = require('../db.js');
 
-app.use(function(req, res, next) {
-  if (req.session.room) {
-    res.locals.userRoom = req.session.room;
-  }
-  if (typeof req.query === 'object')
+app.use(function include_template_variables(req, res, next)
+{ res.locals.userRoom = req.session.room;
+  res.locals.userid = req.session.userid;
+  next();
+});
+
+app.use(function queryparser_wtf(req, res, next)
+{ if (typeof req.query === 'object')
     return next();
   query = req.query();
   if (typeof query === 'object')
