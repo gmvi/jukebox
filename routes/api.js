@@ -22,12 +22,12 @@ app.get('/api/rooms/:room', function api_checkroom(req, res, next)
 
 app.post('/api/rooms', function api_createroom(req, res)
 { if (!req.body.room)
-    fail(res, "params", "no room param");
+    fail(res, "params", "no room param in query string");
   else if (req.session.room)
     fail(res, "multiple", "close your other room and try again");
-  else db.RoomExists(req.body.room, function(exists) {
-    if (exists) fail(res, "occupied");
-    else db.CreateRoom(req.body.room, req.sessionID, function (err, _)
+  else db.RoomExists(req.body.room, function(err, exists)
+  { if (exists) fail(res, "occupied");
+    else db.CreateRoom(req.body.room, req.session.userid, function (err)
     { req.session.room = req.body.room;
       res.send({ status : "success",
                  room   : req.body.room });
@@ -39,7 +39,7 @@ app.post('/api/rooms', function api_createroom(req, res)
 app.delete('/api/rooms/:room', function api_deleteroom(req, res, next)
 { db.GetRoomByName(req.params.room, function(err, room)
   { if (room)
-    { if (room.host != req.sessionID)
+    { if (room.host != req.session.userid)
         fail(res, "ownership");
       else
       { db.CloseRoom(req.params.room);
