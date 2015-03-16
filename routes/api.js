@@ -1,59 +1,81 @@
-var app = require('../app.js');
-var db = require('../db.js');
+var express = require('express'),
+    models = require('../models');
+var Room = models.Room;
 
-function fail(res, reason, details_or_status, status)
-{ if (typeof details_or_status == 'number')
-  { status = details_or_status;
-    details_or_status = undefined;
+var router = module.exports = new express.Router();
+
+function fail(res, reason, details, status) {
+  if (typeof details == 'number' && status === undefined) {
+    status = details;
+    details = undefined;
   }
-  res.status(status || 400);
-  res.send({ status: "failure",
+  res.status(status || 400)
+     .send({ status: "failure",
              reason: reason,
-             details: details_or_status });
+             details: details });
 }
 
-// TODO: rewrite
-app.get('/api/rooms/:room', function api_checkroom(req, res, next)
-{ db.GetRoomByName(req.params.room, function(err, room) {
-    if (err) throw err;
-    if (room)
+router.get('/rooms/:room', function api_checkroom(req, res, next) {
+  Room.findOne({name: req.params.room}, function(err, room) {
+    if (err || !room) {
+      next(err);
+    } else {
       res.send({ "name": room.name,
                  "host": room.host });
-    else
-      next();
-  });
-});
-
-app.post('/api/rooms', function api_createroom(req, res)
-{ if (!req.session.userid)
-    return res.send(401);
-  if (!req.body.room)
-    fail(res, "params", "no room param in query string");
-  else if (req.session.room)
-    fail(res, "multiple", "close your other room and try again");
-  else db.RoomExists(req.body.room, function(err, exists)
-  { if (exists) fail(res, "occupied");
-    else db.CreateRoom(req.body.room, req.session.userid, function (err)
-    { req.session.room = req.body.room;
-      res.send({ status : "success",
-                 room   : req.body.room });
-    });
-  });
-});
-
-//here
-app.delete('/api/rooms/:room', function api_deleteroom(req, res, next)
-{ db.GetRoomByName(req.params.room, function(err, room)
-  { if (room)
-    { if (room.host != req.session.userid)
-        fail(res, "ownership", 401);
-      else
-      { db.CloseRoom(req.params.room);
-        req.session.room = "";
-        res.send({ status: "success" });
-      }
     }
-    else
-      next();
+  });
+});
+
+router.post('/rooms', function api_createroom(req, res, next) {
+  if (!req.body.room) {
+    fail(res, "params", "room");
+  } else if (!req.body.host) {
+    fail(res, "params", "host");
+  } else if (req.session.room) {
+    fail(res, "multiple");
+  } else {
+    Room.findOne({name: req.params.room}, function(err, room) {
+      if (err) next(err);
+      else if (room) {
+        fail(res, "occupied");
+      } else {
+        var room = new Room({name: req.body.room, host: req.body.host});
+        room.save(function(err) {
+          if (err) next(err);
+          else {
+            req.session.room = req.body.room;
+            res.send({ status : "success",
+                       room   : req.body.room });
+          }
+        });
+      }
+    });
+  }
+});
+
+router.get('/my_room', function(req, res, next) {
+  if (req.session.room) res.json({name:req.session.room});
+  else res.json(null);
+});
+
+router.post('/close_room', function api_deleteroom(req, res, next) {
+  // idempotency
+  if (!req.session.room) return res.send({ status: "success" });
+  Room.findOne({name: req.session.room}, function(err, room)
+  { if (err) next(err);
+    else if (!room) {
+      // wat?
+      console.warn("failed to find room on delete");
+      req.session.room = "";
+      res.send({ status: "success" });
+    } else {
+      room.remove(function(err) {
+        if (err) next(err);
+        else {
+          req.session.room = "";
+          res.send({ status: "success" });
+        }
+      });
+    }
   });
 });

@@ -1,6 +1,0 @@
-{
-  "sessionsecret" : "You Should Really Change This",
-  "port" : 5001,
-  "debug" : true,
-  "databaseuri" : "mongodb://127.0.0.1/patchwork"
-}

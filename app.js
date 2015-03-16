@@ -2,58 +2,57 @@
 // peer-to-peer party-playlisting
 
 var fs           = require('fs'),
-    http         = require('http'),
-    jade         = require('jade'),
+    http         = require('http');
+
+var jade         = require('jade'),
     express      = require('express'),
     bodyparser   = require('body-parser'),
     cookieparser = require('cookie-parser'),
     session      = require('express-session'),
+    peer         = require('peer'),
+    mongoose     = require('mongoose'),
     MongoStore   = require('connect-mongo')(session);
 
-var MemoryStore  = session.MemoryStore;
+global.config = require('./config');
+global.config.port = global.config.port || 5001;
 
-var settings = require('./settings'),
-    dbcontroller = require('./db');
+mongoose.connect(global.config.dbURI);
 
 var parseCookie = cookieparser();
-
-var sessionStore;
-if (!settings.debug)
-  sessionStore = new MongoStore({ db: database });
-else
-  sessionStore = new MemoryStore();
-var parseSession = session({ secret : settings.sessionsecret,
-                             key    : 'sid',
-                             store  : sessionStore
-                           });
-
-var parseBody = bodyparser(); // for POST url-encoded data
+var sessionStore = new MongoStore({ mongooseConnection: mongoose.connection });
+var parseSession = session(
+  { secret : global.config.sessionsecret,
+    store  : sessionStore,
+    resave : false,
+    saveUninitialized : false
+  });
 
 var app = module.exports = express();
 var server = http.createServer(app);
-require("./peerserver")(dbcontroller);
 
 app.set('views', __dirname + '/templates');
 app.set('view engine', 'jade');
 
-//app.use(express.logger());
 app.use(parseCookie);
 app.use(parseSession);
-app.use(parseBody);
+app.use(bodyparser.json());
+app.use(bodyparser.urlencoded({extended:false}))
 
 // static folders and files
 app.use('/stylesheets', express.static(__dirname + '/stylesheets'));
 app.use('/scripts',     express.static(__dirname + '/scripts'));
 app.use('/assets',      express.static(__dirname + '/assets'));
-app.use('/bower',       express.static(__dirname + '/bower_components'));
+// TODO: a smarter filter on this
+app.use('/bower', express.static(__dirname + '/bower_components'));
 
-//TODO: put db on a prototype
-app.use(function custom_env_tweaks(req, res, next){
-  req.db = dbcontroller;
-  next();
+app.use('/peerjs', peer.ExpressPeerServer(server));
+app.use('/', require('./routes'));
+
+app.use(function(req, res, next) {
+  res.status(404).send('lolwut?');
 });
 
-require('./routes');
-
-console.log("Starting server");
-server.listen(process.env.PORT || 5001);
+server.listen(global.config.port, function(err) {
+  if (err) throw err;
+  console.log("listening on port", global.config.port);
+});

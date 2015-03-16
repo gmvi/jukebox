@@ -1,33 +1,22 @@
-var app = require('../app.js');
-var db = require('../db.js');
+var express = require('express');
 
-app.get('/', function view_index(req, res)
-{ res.render('index');
+var models = require('../models');
+var Room = models.Room;
+
+var router = module.exports = new express.Router();
+
+router.get('/', function view_index(req, res) {
+  res.render('index');
 });
 
-app.get('/login', function log_in(req, res)
-{ req.session.userid = req.sessionID;
-  res.redirect(req.query.return_url || '/');
-});
-
-app.get('/logout', function log_out(req, res)
-{ if (req.session.room)
-    db.CloseRoom(req.session.room);
-  delete req.session.userid;
-  delete req.session.room;
-  res.redirect(req.query.return_url || '/')
-})
-
-app.get('/:room', function view_room(req, res, next)
-{ db.GetRoomByName(res.room, function (err, room)
-  { if (err) throw err;
-    if (room)
-    { if (room.host === req.session.userid)
-        res.render('room_admin');
-      else
-        res.render('room_user');
+router.get('/:room', function view_room(req, res, next) {
+  Room.findOne({name: req.params.room}, function (err, room) {
+    if (err || !room) next(err);
+    else {
+      res.locals.my_room = req.session.room;
+      res.locals.host = room.host;
+      res.locals.admin = room.name == req.session.room
+      res.render('room');
     }
-    else
-      next();
   });
 });
