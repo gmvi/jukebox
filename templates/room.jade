@@ -1,0 +1,26 @@
+doctype html
+html(lang = "en")
+  head
+    include includes/head
+    script(src="/scripts/room.js")
+    if admin
+      script(src="/scripts/room_admin.js")
+    else
+      script(src="/scripts/room_user.js")
+    link(href="/stylesheets/room.css" rel="stylesheet") 
+    script.
+      var room = "#{room}";
+      var host = "#{host}";
+    title= "Influx: " + room
+  body
+    include includes/nav
+    .container
+      .page-header.col-md-8.col-md-offset-2
+        if admin
+          h2= room
+            .btn-group.pull-right
+              button#close.btn.btn-danger(type="button") Close Room
+        else
+          h2= "Room: " + room
+      include includes/room
+      include includes/footer

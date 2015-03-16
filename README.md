@@ -1,6 +1,6 @@
-Patchwork
-=========
+Influx
+======
 
-A party playlist which will accept links to services (bandcamp, soundcloud, youtube; like plug.dj), and also support p2p file transfer.
+A party playlist service which support linkin in from streaming services (soundcloud, youtube; like plug.dj), and also support p2p streaming (similar to the late & great turntable.fm).
 
-Remember turntable.fm? This won't have to have a blacklist.
+Remember turntable.fm? Influx won't touch your music files, and will never have a blacklist.
