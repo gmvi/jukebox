@@ -13,6 +13,7 @@ A party playlist service which will support linking from streaming services (sou
 - login w/ google
 
 ### Planned features for after MVP (more of a idea-dump than a roadmap)
+- better project name and a catchy domain name
 - multiple logins: facebook, google, twitter, (email?)
 - linking from youtube
 - linking from soundcloud
