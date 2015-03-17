@@ -2,7 +2,7 @@ Influx
 ======
 A party playlist service which will support linking from streaming services (soundcloud, youtube; like plug.dj), and also support p2p streaming (like the non-p2p filesharing of the late & great turntable.fm). The idea is I want something like plug.dj, but for a  use-case more in-line with what I once used turntable.fm for: people in the same physical space, all contributing music from their own devices to a single playlist. All file-sharing has to be p2p though, I don't want any copyrighted material passing through servers I own.
 
-### Current goals for minimum viable prototype
+### Current ideas for minimum viable prototype
 - users are either 'host' or 'client'
 - single host-user for each room, this user has admin permissions
 - host user has one 'main' javascript app instance (w/ option to switch), this plays the music
@@ -12,7 +12,7 @@ A party playlist service which will support linking from streaming services (sou
 - rooms will only have 'round-robin' mode: each time a new song is needed, it will be requested from the next user
 - login w/ google
 
-### Planned features for after MVP (more of a idea-dump than a roadmap)
+#### Planned features for after MVP (idea-dump; not a roadmap)
 - better project name and a catchy domain name
 - multiple logins: facebook, google, twitter, (email?)
 - linking from youtube
