@@ -1,25 +1,27 @@
-doctype html
-html(lang = "en")
-  head
-    include includes/head
+extends layout
+
+block head
     script(src="/scripts/index.js") 
     link(href="/stylesheets/index.css" rel="stylesheet") 
     title Influx
-  body
-    include includes/nav
-    .container
-      if room
-        .row
-          .col-md-4.col-md-offset-4
-            h3 Your Room
-            div.list-group
-              a.list-group-item(href="/"+room)= room
-      else
-        .row
-          .col-md-4.col-md-offset-4
-            h5 Create a Room
-            .input-group
-              input#room.form-control(type="text")
-              span.input-group-btn
-                button#create-room.btn.btn-default(type="button" disabled) Create
-      include includes/footer
+
+block main
+  if user
+    if room
+      .row
+        .col-md-4.col-md-offset-4
+          h3 Your Room
+          div.list-group
+            a.list-group-item(href="/"+room)= room
+    else
+      .row
+        .col-md-4.col-md-offset-4
+          h5 Create a Room
+          .input-group
+            input#room.form-control(type="text")
+            span.input-group-btn
+              button#create-room.btn.btn-default(type="button" disabled) Create
+  else
+    .row
+      .col-md-2.col-md-offset-5
+        h5: a(href="/login") Log In

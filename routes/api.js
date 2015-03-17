@@ -15,6 +15,15 @@ function fail(res, reason, details, status) {
              details: details });
 }
 
+var authenticate = function(req, res, next) {
+  if (!req.session.user) {
+    console.log(req.session.user);
+    fail(res, 'unauthenticated', 401);
+  } else {
+    next();
+  }
+}
+
 router.get('/rooms/:room', function api_checkroom(req, res, next) {
   Room.findOne({name: req.params.room}, function(err, room) {
     if (err || !room) {
@@ -26,7 +35,7 @@ router.get('/rooms/:room', function api_checkroom(req, res, next) {
   });
 });
 
-router.post('/rooms', function api_createroom(req, res, next) {
+router.post('/rooms', authenticate, function api_createroom(req, res, next) {
   if (!req.body.room) {
     fail(res, "params", "room");
   } else if (!req.body.host) {
@@ -53,12 +62,12 @@ router.post('/rooms', function api_createroom(req, res, next) {
   }
 });
 
-router.get('/my_room', function(req, res, next) {
+router.get('/my_room', authenticate, function(req, res, next) {
   if (req.session.room) res.json({name:req.session.room});
   else res.json(null);
 });
 
-router.post('/close_room', function api_deleteroom(req, res, next) {
+router.post('/close_room', authenticate, function api_deleteroom(req, res, next) {
   // idempotency
   if (!req.session.room) return res.send({ status: "success" });
   Room.findOne({name: req.session.room}, function(err, room)
