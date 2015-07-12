@@ -1,10 +1,13 @@
 // stdlib
 var querystring = require('querystring');
 // vendor
-var express = require('express');
+var express = require('express'),
+    async   = require('async'),
+    winston = require('winston');
 // local
 var models = require('../models'),
-    Room = models.Room;
+    Room = models.Room,
+    User = models.User;
 
 var router = module.exports = new express.Router();
 
@@ -17,54 +20,59 @@ router.get('/', function view_index(req, res) {
   res.render('index');
 });
 
-USERS = {
-  a: { username: 'a', name: 'Test User A' },
-  b: { username: 'b', name: 'Test User B' },
-  c: { username: 'c', name: 'Test User C' },
-  d: { username: 'd', name: 'Test User D' }
-}
-
-var authenticated = function(req, res, next) {
+var authenticate = function(req, res, next) {
   if (!req.session.user) {
     var qs = querystring.encode({ redirect: req.originalUrl });
-    console.log(redirect);
-    res.redirect("/login?" + redirect);
+    res.redirect("/login?" + qs);
   } else {
     next();
   }
 }
 
 router.route('/login')
+.all(function (req, res, next) {
+  if (req.session.user) {
+    res.redirect(req.query.redirect || '/');
+  } else {
+    next();
+  }
+})
 .get(function (req, res) {
   res.locals.redirect = req.query.redirect;
   res.render('login');
 })
-.post(function (req, res) {
-  user = req.body.user;
-  redirect = req.body.redirect;
-  if (user in USERS) {
-    req.session.user = USERS[user];
-    req.session.save();
-    res.redirect(redirect || '/');
-  } else {
-    var qs = { err: 'George, stop breaking your app!' };
-    if (redirect) qs.redirect = redirect;
-    res.redirect('/login?'+querystring.encode(qs));
-  }
+.post(function (req, res, next) {
+  username = req.body.username;
+  redirect = req.query.redirect;
+  User.findOne({ username: username }, function(err, user) {
+    if (err) next(err);
+    else if (!user) {
+      res.status(404).send();
+    } else {
+      req.session.user = user;
+      req.session.save();
+      res.redirect(redirect || '/');
+    }
+  });
 });
 
-var logout = function (req, res) {
-  Room.findOne({name: req.session.room}, function(err, room) {
+var logout = function (req, res, next) {
+  async.waterfall([
+    function(callback) {
+      Room.findOne({ host: req.session.user._id }, callback);
+    },
+    function(room, callback) {
+      if (room) room.remove(callback);
+      else callback();
+    },
+    function(callback) {
+      delete req.session.user;
+      delete req.session.room;
+      req.session.save(callback);
+    }
+  ], function(err) {
     if (err) next(err);
-    else room.remove(function(err) {
-      if (err) next(err);
-      else {
-        delete req.session.user;
-        delete req.session.room;
-        req.session.save();
-        res.redirect('/');
-      }
-    });
+    else res.redirect('/');
   });
 }
 router.route('/logout')
@@ -72,7 +80,7 @@ router.route('/logout')
 .post(logout);
 
 router.route('/:room')
-.all(authenticated)
+.all(authenticate)
 .get(function view_room(req, res, next) {
   Room.findOne({name: req.params.room}, function (err, room) {
     if (err || !room) next(err);

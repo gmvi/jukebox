@@ -1,8 +1,14 @@
-var express = require('express'),
+var _ = require('lodash'),
+    express = require('express'),
+    winston = require('winston'),
     models = require('../models');
-var Room = models.Room;
+var Room = models.Room,
+    User = models.User;
 
 var router = module.exports = new express.Router();
+
+var reservedNames = ['login', 'logout', 'api',
+                     'about', 'faq', 'help', 'contact'];
 
 function fail(res, reason, details, status) {
   if (typeof details == 'number' && status === undefined) {
@@ -10,81 +16,121 @@ function fail(res, reason, details, status) {
     details = undefined;
   }
   res.status(status || 400)
-     .send({ status: "failure",
-             reason: reason,
+     .json({ reason: reason,
              details: details });
 }
 
 var authenticate = function(req, res, next) {
   if (!req.session.user) {
-    console.log(req.session.user);
     fail(res, 'unauthenticated', 401);
   } else {
     next();
   }
 }
 
+var roomToJSON = function(room) {
+  return {
+    'name': room.name,
+    'host': { 
+      '_id': room.host._id,
+      'peerid': room.host.peerid,
+    },
+  };
+}
+
+// GET /rooms/:room returns room data if the room is found, including host's peerid
 router.get('/rooms/:room', function api_checkroom(req, res, next) {
-  Room.findOne({name: req.params.room}, function(err, room) {
-    if (err || !room) {
+  var query = Room.findOne({name: req.params.room});
+  query.exec(function(err, room) {
+    console.log(room);
+    if (err) {
       next(err);
+    } else if (!room) {
+      fail(res, 'not found', 404);
     } else {
-      res.send({ "name": room.name,
-                 "host": room.host });
+      res.json(roomToJSON(room));
     }
   });
 });
 
 router.post('/rooms', authenticate, function api_createroom(req, res, next) {
-  if (!req.body.room) {
-    fail(res, "params", "room");
-  } else if (!req.body.host) {
-    fail(res, "params", "host");
-  } else if (req.session.room) {
-    fail(res, "multiple");
+  var roomName = req.body.room;
+  if (!roomName) {
+    fail(res, 'params', 'room');
+  } else if (roomName in reservedNames) {
+    fail(res, 'reserved');
   } else {
-    Room.findOne({name: req.params.room}, function(err, room) {
-      if (err) next(err);
-      else if (room) {
-        fail(res, "occupied");
-      } else {
-        var room = new Room({name: req.body.room, host: req.body.host});
-        room.save(function(err) {
-          if (err) next(err);
-          else {
-            req.session.room = req.body.room;
-            res.send({ status : "success",
-                       room   : req.body.room });
-          }
-        });
+    async.waterfall([
+      function(callback) {
+        Room.findOne({ host: req.session.user._id }, callback);
+      },
+      function(room, callback) {
+        if (room) fail(res, 'multiple');
+        else callback();
+      },
+      function(callback) {
+        Room.findOne({ name: roomName }, callback);
+      },
+      function(room, callback) {
+        if (room) {
+          fail(res, 'occupied');
+        } else {
+          var room = new Room({ name: roomName, host: req.session.user._id });
+          room.save(callback);
+        }
       }
+    ], function(err) {
+      if (err) next(err);
+      else res.status(200).end();
     });
   }
 });
 
 router.get('/my_room', authenticate, function(req, res, next) {
-  if (req.session.room) res.json({name:req.session.room});
-  else res.json(null);
+  Room.findOne({ host: req.session.user._id }, function(err, room) {
+    if (err) next(err);
+    else if (room) {
+      res.json(roomToJSON(room))
+    } else {
+      res.json(null);
+    }
+  });
 });
 
-router.post('/close_room', authenticate, function api_deleteroom(req, res, next) {
-  // idempotency
-  if (!req.session.room) return res.send({ status: "success" });
-  Room.findOne({name: req.session.room}, function(err, room)
-  { if (err) next(err);
+router.delete('/my_room', authenticate, function api_deleteroom(req, res, next) {
+  console.log('entered route');
+  Room.findOne({ host: req.session.user._id }, function(err, room) {
+    if (err) next(err);
     else if (!room) {
-      // wat?
-      console.warn("failed to find room on delete");
-      req.session.room = "";
-      res.send({ status: "success" });
+      // idempotency
+      req.session.room = '';
+      res.json({ status: 'success' });
     } else {
       room.remove(function(err) {
         if (err) next(err);
         else {
-          req.session.room = "";
-          res.send({ status: "success" });
+          req.session.room = '';
+          res.json({ status: 'success' });
         }
       });
+    }
+  });
+});
+
+router.post('/peerid', function(req, res) {
+  if (!req.body.peerid) {
+    fail(res, 'params', 'peerid');
+  } else {
+    console.log('asdf');
+  }
+});
+
+router.get('/dev/reset', function(req, res, next) {
+  Room.collection.remove(function(err) {
+    if (err) next(err);
+    else {
+      winston.debug("resetting rooms");
+      res.redirect('/');
     }
   });
 });

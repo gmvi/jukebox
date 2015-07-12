@@ -43,7 +43,7 @@ $(document).ready(function() {
   }
   $("#close").click(function(e) {
     $.ajax({ url: "/api/close_room",
-             type: "DELETE",
+             type: "POST",
              success: function(data) {
                if (data.status == "success")
                  window.location.assign("/");

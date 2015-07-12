@@ -16,7 +16,7 @@ html(lang = "en")
             if room
               li: a(href="/"+room) Your Room
             if user
-              li: b.navbar-text= user.name
+              li: b.navbar-text= user.displayname
               li: a(href="/logout") logout
     .container
       block main

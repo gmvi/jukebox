@@ -14,12 +14,10 @@ block head
 
 block main
   .page-header.col-md-8.col-md-offset-2
-    if admin
-      h2= room
+    h2= "Room: " + room
+      if admin
         .btn-group.pull-right
           button#close.btn.btn-danger(type="button") Close Room
-    else
-      h2= "Room: " + room
   .col-md-4.col-md-offset-4
     ul.list-group
         li.list-group-item N/A
