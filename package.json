@@ -15,7 +15,16 @@
     "commander": "2.8.x"
   },
   "engines": {
-    "iojs": "2.3.x"
+    "iojs": "2.x.x",
+    "node": "^0.10.0"
   },
-  "main": "lib/app.js"
+  "main": "lib/app.js",
+  "devDependencies": {
+    "node-libs-browser": "^0.5.2",
+    "webpack": "^1.10.1"
+  },
+  "scripts": {
+    "start": "node lib/app.js",
+    "start-dev": "nohup node-dev lib/app.js &"
+  }
 }

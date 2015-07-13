@@ -1,3 +1,4 @@
 node_modules/
-bower_components/
-settings.json
+*.log
+*.err
+*.pid
