@@ -2,7 +2,14 @@
 
 'use strict';
 
-var React = require('react');
-var App = require('./components/App');
+var React = require('react'),
+    App   = require('components/App');
 
-React.render(<App />, document.getElementById('content'));
+var actions = require('./actions'),
+    stores = require('./stores');
+
+require('webrtc-adapter-test');
+
+require('./base.css');
+
+React.render(<App />, document.body);

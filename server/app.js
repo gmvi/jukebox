@@ -1,60 +1,154 @@
-// Patchwork
+// peertable (peer-to-peer + turntable.fm)
 // peer-to-peer party-playlisting
 
+// std lib
 var fs   = require('fs'),
-    http = require('http');
+    http = require('http'),
+    path = require('path');
+// npm lib
+var _              = require('lodash'),
+    bodyparser     = require('body-parser'),
+    commander      = require('commander'),
+    express        = require('express'),
+    expressWinston = require('express-winston'),
+    peer           = require('peer'),
+    winston        = require('winston'),
+    handlebars     = require('handlebars'),
+    stringEscape   = require('js-string-escape');
+// local
+var defaultConfig = require('./default-config.json'),
+    util          = require('./util'),
+    enums         = require('../shared/enums');
 
-var _         = require('lodash'),
-    async     = require('async'),
-    commander = require('commander'),
-    path      = require('path'),
-    winston   = require('winston'),
-    Hapi      = require('hapi');
-
-var util = require('./util');
-
+// Parse command line arguments
+// the parity of commander.js coercion functions matters
+function unaryResolvePath(value) { return path.resolve(value); }
 commander
-  .option('-h, --hostname [hostname]', 'Restrict to a hostname')
-  .option('-p, --port [portnum]', 'Specify a port number [default 8080]')
-  .option('-c, --config [path]', 'Specify an alternate config location [default /etc/influx.conf.json]',
-          path.resolve, '/etc/influx.conf.json')
-  .parse(process.argv)
+    .option('-h, --hostname [hostname]', 'Restrict to a hostname')
+    .option('-p, --port [portnum]',
+        'Specify a port number [default '+defaultConfig.port+']'
+    )
+    .option(
+        '-c, --config [path]',
+        'Specify an alternate config location [default /etc/peertable.conf.json]',
+        unaryResolvePath, '/etc/peertable.conf.json'
+    )
+    // the above makes path.resolve a unary function
+    // otherwise, commander will pass the default value as the second parameter
+    .parse(process.argv);
 
-// layer command-line options over the config over the defaults
-var defaults = {
-  'port': 8080,
-  'logLevel': 'debug',
-}
+// Load config, then apply defaults, then override with command line options
 var config = util.loadConfig(commander.config);
-global.config = _.assign(defaults, config, commander.opts(), function(value, other) {
-  return _.isUndefined(other) ? value : other;
+_.defaultsDeep(config, defaultConfig);
+global.config = _.assign(config, commander.opts(), function(value, other) {
+    // this check is needed because hasOwnProperty returns true on
+    // commander.opts() for unset options
+    return _.isUndefined(other) ? value : other;
 });
+// automatic config and globals
+global.development = process.env.NODE_ENV !== 'production';
+global.config.host = global.config.hostname+':'+global.config.port;
+
+// Set up logging
 winston.level = global.config.logLevel;
+winston.debug('logging debug messages');
+winston.info('loading application logic')
 
-winston.debug('Logging debug messages!');
-winston.info('Configuring server...');
+// Connect to database. Loading this module sets up the db connection.
+var models = require('./models');
+// models.initialize(); // uncomment this line to create the table schema
 
-var server = new Hapi.Server({
+// Set up express.
+var app = express();
+var server = http.createServer(app);
+// middleware
+app.use(bodyparser.json());
+app.use(bodyparser.urlencoded({ extended:false }));
+// static folders and files
+app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+
+// Request logging.
+if (global.config.logRequests) {
+    winston.debug("logging requests");
+    app.use(expressWinston.logger({
+        transports: [
+            new winston.transports.Console({
+                colorize: true,
+            })
+        ],
+        meta: false,
+        msg: 'HTTP {{req.method}} {{req.url}}',
+    }));
+}
+
+// Set up signaling server.
+// force PeerServer's debug option
+_.apply(global.config.peerServerOpts, {
+    debug: global.development
+});
+app.use('/peerjs', peer.ExpressPeerServer(server, global.config.peerServerOpts));
+
+// Connect routes.
+app.use('/api', require('./api'));
+// only one template for now, so let's have some fun with closures
+var render = (function() {
+    var template = null;
+    var templatepath = path.join(__dirname, 'views/index.hbs');
+    function reload() {
+        var templateString = fs.readFileSync(templatepath).toString()
+        template = handlebars.compile(templateString);
+    }
+    return function(vars) {
+        if (!template || global.development) reload();
+        return template({
+            vars: JSON.stringify(vars)
+        });
+    }
+})();
+// TODO handle favicon
+app.get('/favicon.ico', function(req, res) {
+    res.sendStatus(404);
+});
+// load the create-room interface
+app.get('/', function(req, res) {
+    res.send(render({
+        mode: enums.MODE.CREATE,
+    }));
+});
+// url for a specific room
+app.get('/:token', function(req, res, next) {
+    // try to fetch the room
+    models.Room.where({uri_token: req.params.token})
+        .fetch()
+        .then(function(room) {
+            if (room) {
+                // load the regular interface
+                res.send(render({
+                    mode: enums.MODE.JOIN,
+                    room: room.serializePublic()
+                }));
+            } else {
+                // load the create-room interface
+                res.send(render({
+                    mode: enums.MODE.CREATE,
+                }));
+            }
+        }).catch(function(err) {
+            next(err);
+        });
 });
 
-server.connection({
-  host: global.config.hostname,
-  port: global.config.port,
-});
+// app.use(expressWinston.errorLogger({
+//   transports: [
+//     new winston.transports.Console({
+//       json: true,
+//       colorize: true,
+//     })
+//   ]
+// }));
 
-server.route({
-  method: 'GET',
-  path: '/{param*}',
-  handler: {
-    directory: {
-      path: 'public/',
-    },
-  },
-});
-
-server.start(function(err) {
-  if (err) process.exit(1);
-  else {
-    winston.info("Server running at: ", server.info.uri);
-  }
+// you got this!
+server.listen(global.config.port, global.config.hostname, function(err) {
+    if (err) throw err;
+    winston.info('listening on port', global.config.port);
 });

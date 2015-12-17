@@ -1,1 +1,1 @@
-webpack --watch > logs/webpack.log 2> logs/webpack.err & echo $! > logs/webpack.pid
+webpack --watch > logs/webpack.log 2>&1 & echo $! > logs/webpack.pid
