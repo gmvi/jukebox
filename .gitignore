@@ -1,3 +1,7 @@
-node_modules/
-bower_components/
-settings.json
+node_modules
+logs/
+*.log
+*.err
+*.pid
+
+db.sqlite
