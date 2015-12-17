@@ -1,1 +1,1 @@
-node-dev server/app.js > logs/influx.log 2>&1 & echo $! > logs/influx.pid
+node-dev server/app.js > logs/peertable.log 2>&1 & echo $! > logs/peertable.pid

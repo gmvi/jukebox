@@ -1,1 +1,1 @@
-kill `cat logs/influx.pid` && rm 'logs/influx.pid'
+kill `cat logs/peertable.pid` && rm 'logs/peertable.pid'

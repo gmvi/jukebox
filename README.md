@@ -1,23 +1,25 @@
-Influx
+Peertable
 ======
-A party playlist service which will support linking from streaming services (soundcloud, youtube; like plug.dj), and also support p2p streaming (like the non-p2p filesharing of the late & great turntable.fm). The idea is I want something like plug.dj, but for a  use-case more in-line with what I once used turntable.fm for: people in the same physical space, all contributing music from their own devices to a single playlist. All file-sharing has to be p2p though, I don't want any copyrighted material passing through servers I own.
+A party playlist service. Like turntable.fm (RIP), but peer-to-pear and meant
+for physical spaces, with all music files flowing to one host computer connected
+to speakers. Peertable will support linking from streaming services including
+soundcloud and youtube, like plug.dj (also RIP).
 
-### Current ideas for minimum viable prototype
+### Current plan for MVP
 - users are either 'host' or 'client'
-- single host-user for each room, this user has admin permissions
-- host user has one 'main' javascript app instance (w/ option to switch), this plays the music
-- each user has a 'main' javascript app instance, all others are view-only (w/ option to switch focus)
-- each 'main' app instance has a local playlist, this is not persisted across refresh
+- single host-user for each room, this user acts as the server of a traditional app
+  architecture. The server is a storefront pointing users to the host.
+- host user may open multiple pages open, need to make sure only one is host, others become clients
+- each client user can load files, but these are not persisted across refresh
+- host has a buffer of upcoming songs in localstorage?
 - playlists can only contain local files
-- rooms will only have 'round-robin' mode: each time a new song is needed, it will be requested from the next user
-- login w/ google
+- rooms will only have 'round-robin' mode: each time a new song is needed, it will be requested from the next user in the queue
 
-#### Planned features for after MVP (idea-dump; not a roadmap)
-- better project name and a catchy domain name
-- multiple logins: facebook, google, twitter, (email?)
-- linking from youtube
-- linking from soundcloud
-- linking from spotify When host is a desktop w/ spotify set up? Can I hijack embedding?
-- linking from bandcamp? Search will be difficult. Can I hijack embedding?
-- 3rd-party storage integration for persisting local-file playlists? dropbox? google drive?
+#### Feature ideas
+- better project name and a catchy domain name?
+- linking from youtube and soundcloud
+- option to allow spotify linking when host is a desktop w/ spotify set up
+- linking from bandcamp? Search will be difficult. Can I hijack embedding? Is scraping from bandcamp ethical?
+- personal playlists like plug.dj
+- 3rd-party storage integration for persisting playlists with local files? dropbox? google drive? amazon cloud drive?
 - Native phone apps
