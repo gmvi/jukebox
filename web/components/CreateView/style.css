@@ -1,0 +1,9 @@
+.CreateView {
+  margin: 0px 70px;
+  padding: 40px 15px;
+}
+
+.CreateView .lead {
+  font-size: 20px;
+  text-align: center;
+}

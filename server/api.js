@@ -40,6 +40,7 @@ router.post('/rooms', function(req, res, next) {
       next(err);
     });
   }, function(err) {
+    // uri_token error
     res.status(400).json({
       "attribute": "uri_token",
       "reason": err.message

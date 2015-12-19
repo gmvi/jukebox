@@ -4,7 +4,7 @@ var _       = require('lodash'),
 var knex = require('knex')(global.config.db);
 var bookshelf = require('bookshelf')(knex);
 
-var util = require('./util');
+var utils = require('./utils');
 
 exports.initialize = function() {
   return knex.schema.createTable('rooms', function (table) {
@@ -28,16 +28,11 @@ var Room = exports.Room = bookshelf.Model.extend({
 }, {
   sanitizeURIToken: function(token) {
     return new Promise(function(fulfill, reject) {
-      if (_.isString(token) && token.length != 0) {
-        token = token.replace(/[']/gi, '')
-                     .replace(/[^\w\.~]/gi, '-')
-                     .toLowerCase();
-        if (util.reservedTokens.indexOf(token) >= 0) {
-          reject(new Error('duplicate'));
-        }
-        fulfill(token);
+      var sanizized = utils.sanitizePathtoken(token);
+      if (util.reservedTokens.indexOf(sanitized) >= 0) {
+        reject(new Error('duplicate'));
       } else {
-        fulfill(null);
+        fulfill(sanitized);
       }
     });
   }

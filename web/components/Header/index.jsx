@@ -11,14 +11,13 @@ module.exports = React.createClass({
   displayName: 'Header',
 
   render: function(){
-    var classes = cx({
-      'Header': true
-    });
     return (
-      <header className={classes}>
-        <a className="brand" href="/">
-          [header brand]
-        </a>
+      <header className='Header'>
+        <span className="brand">Peertable</span>
+        { this.props.title ?
+            <span>/{this.props.title}</span> :
+            <span />
+        }
       </header>
     );
   }

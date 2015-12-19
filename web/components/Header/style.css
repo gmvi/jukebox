@@ -1,16 +1,18 @@
-.header {
+.Header {
   display: block;
   width: 100%;
-  height: 40px;
-  background-color: grey;
-  border-bottom: 1px solid black;
+  padding: 0px 70px;
+  background-color: #222;
+  color: #9d9d9d;
+  font-size: 16px;
+  line-height: 20px;
+  border-bottom: 1px solid #080808
 }
 
-.header .brand {
-  color: black;
-  font-size: 28px;
-  line-height: 32px;
-  padding: 2px 8px 6px;
+.Header .brand {
+  font-size: 18px;
+  line-height: 20px;
+  padding: 15px 5px 15px 0;
   text-decoration: none;
   display: inline-block;
 }
