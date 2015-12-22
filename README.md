@@ -1,6 +1,6 @@
 Peertable
 ======
-A party playlist service. Like turntable.fm (RIP), but peer-to-pear and meant
+A party playlist service. Like turntable.fm (RIP), but peer-to-peer and meant
 for physical spaces, with all music files flowing to one host computer connected
 to speakers. Peertable will support linking from streaming services including
 soundcloud and youtube, like plug.dj (also RIP).
