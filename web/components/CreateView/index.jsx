@@ -2,7 +2,8 @@
 
 'use strict';
 
-var React = require('react');
+var React            = require('react/addons'),
+    LinkedStateMixin = React.addons.LinkedStateMixin;
 
 var utils = require('shared');
 
@@ -10,6 +11,11 @@ require('./style.css');
 
 var RoomForm = React.createClass({
   displayName: 'RoomForm',
+  propTypes: {
+    pathtoken: React.PropTypes.string,
+  },
+  mixins: [LinkedStateMixin],
+  
   getInitialState: function() {
     // just in case
     var pathtoken = utils.sanitizePathtoken(this.props.pathtoken);
@@ -27,43 +33,43 @@ var RoomForm = React.createClass({
 
   handleNameChange: function(e) {
     this.setState({name: e.target.value});
+    var pathtoken = this.state.pathtoken;
     if (this.state.autoPathtoken) {
-      var pathtoken = utils.sanitizePathtoken(e.target.value);
+      pathtoken = utils.sanitizePathtoken(e.target.value);
       this.setState({pathtoken: pathtoken});
     }
-    this.verify();
+    this.setState({valid: !!pathtoken});
   },
   handlePathtokenFocus: function(e) {
     if (this.state.autoPathtoken) {
       this.setState({pathtoken: ""});
     }
-    this.verify();
   },
   handlePathtokenChange: function(e) {
     this.setState({
       pathtoken: e.target.value,
-      autoPathtoken: !e.target.value
+      autoPathtoken: !e.target.value,
+      valid: !!e.target.value,
     });
-    this.verify();
   },
   handlePathtokenBlur: function(e) {
     if (this.state.autoPathtoken) {
       var pathtoken = utils.sanitizePathtoken(this.state.name);
-      this.setState({pathtoken: pathtoken});
+      this.setState({ pathtoken: pathtoken,
+                      valid: !!pathtoken });
     }
   },
   handlePasswordChange: function(e) {
     this.setState({password: e.target.value});
   },
-  verify: function() {
-    if (!this.state.name && !this.state.pathtoken) {
-      this.setState({valid: false});
-    }
+
+  handleCreateRoom: function() {
+
   },
 
   render: function() {
     return (
-      <form>
+      <form className="RoomForm">
         <div className="input-group">
           <label htmlFor="roomName">Room Name</label>
           <input id="roomName" type="text"
@@ -86,9 +92,14 @@ var RoomForm = React.createClass({
           <label htmlFor="roomPassword">Password</label>
           <input id="roomPassword" type="text"
             autoComplete="off"
-            value={this.state.password}
-            onChange={this.handlePasswordChange}
+            valueLink={this.linkState('password')}
           />
+        </div>
+        <div className="input-group center">
+          <button onClick={this.handleCreateRoom}
+                  disabled={!this.state.valid}>
+            New Room
+          </button>
         </div>
       </form>
     );

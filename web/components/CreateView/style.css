@@ -7,3 +7,58 @@
   font-size: 20px;
   text-align: center;
 }
+
+.RoomForm {
+  width: 500px;
+  margin: 0 auto;
+}
+
+.RoomForm .input-group {
+  width: 50%;
+  display: inline-block;
+  padding: 5px;
+}
+
+.RoomForm .input-group label {
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 20px;
+  margin-bottom: 5px;
+}
+
+.RoomForm .input-group input {
+  width: 100%;
+  height: 34px;
+  padding: 6px 12px;
+  line-height: 20px;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.RoomForm .input-group input:focus {
+  border-color: #66afe9;
+  outline: 0;
+}
+
+.RoomForm .input-group button {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: #fff;
+  border-color: #ccc;
+  outline: 0;
+}
+
+.RoomForm .input-group button:hover {
+  background-color: #e6e6e6;
+  border-color: #adadad;
+}
+
+.RoomForm .input-group button:active {
+  background-color: #d4d4d4;
+  border-color: #8c8c8c;
+}
