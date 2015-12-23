@@ -1,0 +1,7 @@
+{
+  "ERROR_SERVER_FAILURE": "Error: 5xx server failure",
+  "TOOLTIP_PATHTOKEN_DUPLICATE": "This path token is already in use.",
+  "TOOLTIP_PATHTOKEN_INVALID": "This path token is invalid. Only alphanumerics and dashes are allowed",
+  "ERROR_UNKNOWN": "An unidentified error occurred",
+  "CREATE_LEAD": "Peertable is a peer-to-peer jukebox app"
+}

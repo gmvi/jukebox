@@ -58,7 +58,6 @@ winston.info('loading application logic')
 
 // Connect to database. Loading this module sets up the db connection.
 var models = require('./models');
-// models.initialize(); // uncomment this line to create the table schema
 
 // Set up express.
 var app = express();

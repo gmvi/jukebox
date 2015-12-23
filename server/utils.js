@@ -1,7 +1,11 @@
-var fs = require('fs'),
+var _ = require('lodash'),
+    fs = require('fs'),
     winston = require('winston');
 
 var shared = require('../shared');
+
+// graft shared onto this module before adding things
+_.assign(exports, shared);
 
 var loadConfig = exports.loadConfig = function(configPath) {
   try {
@@ -12,6 +16,3 @@ var loadConfig = exports.loadConfig = function(configPath) {
     process.exit(1);
   }
 }
-
-exports.sanitizePathtoken = shared.sanitizePathtoken;
-

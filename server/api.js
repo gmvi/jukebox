@@ -14,12 +14,12 @@ router.get('/rooms', function(req, res) {
 var knexErrorUniqueSplit = 'SQLITE_CONSTRAINT: UNIQUE constraint failed: ';
 
 router.post('/rooms', function(req, res, next) {
-  Room.sanitizeURIToken(req.body.uri_token).then(function(uri_token) {
+  Room.validateURIToken(req.body.uri_token).then(function() {
     var key = crypto.randomBytes(36).toString('base64');
     var room = new Room({
       name: req.body.name,
       key: key,
-      uri_token: uri_token,
+      uri_token: req.body.uri_token,
       peer: req.body.peer
     });
     room.save().then(function(room) {

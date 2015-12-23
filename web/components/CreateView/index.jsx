@@ -3,9 +3,14 @@
 'use strict';
 
 var React            = require('react/addons'),
-    LinkedStateMixin = React.addons.LinkedStateMixin;
+    LinkedStateMixin = React.addons.LinkedStateMixin,
+    Reflux           = require('reflux'),
+    cx               = require('classnames');
 
-var utils = require('shared');
+var stores  = require('web/stores'),
+    actions = require('web/actions'),
+    strings = require('web/strings'),
+    utils   = require('shared');
 
 require('./style.css');
 
@@ -13,16 +18,16 @@ var RoomForm = React.createClass({
   displayName: 'RoomForm',
   propTypes: {
     pathtoken: React.PropTypes.string,
+    error: React.PropTypes.string,
   },
   mixins: [LinkedStateMixin],
   
   getInitialState: function() {
-    // just in case
-    var pathtoken = utils.sanitizePathtoken(this.props.pathtoken);
+    var pathtoken = stores.general.state.pathtoken;
     return {
-      name: "Example Room Name!",
+      name: "",
       pathtoken: pathtoken,
-      password: "correct horse battery staple",
+      password: "",
       autoPathtoken: !pathtoken,
       valid: !!pathtoken,
     };
@@ -63,67 +68,69 @@ var RoomForm = React.createClass({
     this.setState({password: e.target.value});
   },
 
-  handleCreateRoom: function() {
-
+  handleCreateRoom: function(e) {
+    e.preventDefault();
+    actions.general.createRoom(this.state);
   },
 
   render: function() {
     return (
-      <form className="RoomForm">
-        <div className="input-group">
-          <label htmlFor="roomName">Room Name</label>
-          <input id="roomName" type="text"
-            autoComplete="off"
-            value={this.state.name}
-            onChange={this.handleNameChange}
-          />
+      <div className="RoomForm">
+        <form>
+          <div className="input-group">
+            <label htmlFor="roomPathtoken">Pathtoken</label>
+            <input id="roomPathtoken" type="text"
+              autoComplete="off"
+              value={this.state.pathtoken}
+              onChange={this.handlePathtokenChange}
+              onFocus={this.handlePathtokenFocus}
+              onBlur={this.handlePathtokenBlur}
+            />
+          </div>
+          <div className="input-group">
+            <label htmlFor="roomName">Room Name</label>
+            <input id="roomName" type="text"
+              autoComplete="off"
+              value={this.state.name}
+              onChange={this.handleNameChange}
+            />
+          </div>
+          <div className="input-group">
+            <label htmlFor="roomPassword">Password</label>
+            <input id="roomPassword" type="text"
+              autoComplete="off"
+              valueLink={this.linkState('password')}
+            />
+          </div>
+          <div className="input-group center">
+            <button onClick={this.handleCreateRoom}
+                    disabled={!this.state.valid}>
+              New Room
+            </button>
+          </div>
+        </form>
+        <div className={cx('error', {hidden: !this.props.error})}>
+          {this.props.error}
         </div>
-        <div className="input-group">
-          <label htmlFor="roomName">Pathtoken</label>
-          <input id="roomPathtoken" type="text"
-            autoComplete="off"
-            value={this.state.pathtoken}
-            onChange={this.handlePathtokenChange}
-            onFocus={this.handlePathtokenFocus}
-            onBlur={this.handlePathtokenBlur}
-          />
-        </div>
-        <div className="input-group">
-          <label htmlFor="roomPassword">Password</label>
-          <input id="roomPassword" type="text"
-            autoComplete="off"
-            valueLink={this.linkState('password')}
-          />
-        </div>
-        <div className="input-group center">
-          <button onClick={this.handleCreateRoom}
-                  disabled={!this.state.valid}>
-            New Room
-          </button>
-        </div>
-      </form>
+      </div>
     );
   }
 });
 
 module.exports = React.createClass({
   displayName: 'CreateView',
+  propTypes: {
+    error: React.PropTypes.string,
+  },
 
   render: function() {
-    if (!this.props.pathtoken) {
-      return (
-        <div className="CreateView">
-          <p className="lead">
-            Peertable is a peer-to-peer jukebox app.<br/>
-          </p>
-          <RoomForm />
-        </div>
-      );
-    } else {
-      return (
-        <div className="CreateView">
-        </div>
-      );
-    }
-  }
+    return (
+      <div className="CreateView">
+        <p className="lead">
+          {strings.CREATE_LEAD}
+        </p>
+        <RoomForm error={this.props.error}/>
+      </div>
+    );
+ }
 });
