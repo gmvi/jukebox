@@ -4,4 +4,8 @@ logs/
 *.err
 *.pid
 
+# the dev db
 db.sqlite
+
+# other dev things
+c
