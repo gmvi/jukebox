@@ -15,7 +15,7 @@ function Enum(values) {
   }
 }
 
-exports.MODE = new Enum([ 'CREATE', 'JOIN', 'ERROR', 'HOST', 'PEER', ]);
+exports.MODE = new Enum([ 'CREATE', 'JOIN', 'ERROR', 'HOST', 'CLIENT', ]);
 
 var reservedTokens = exports.reservedTokens = [
   'favicon.ico',

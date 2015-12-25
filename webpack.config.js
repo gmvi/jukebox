@@ -16,10 +16,10 @@ module.exports = {
   resolve: {
     extensions: ['', '.js', '.jsx', '.json'],
     alias: {
-      components: path.join(__dirname, './web/components'),
       react: 'react/addons',
-      shared: path.join(__dirname, './shared'),
-      web: path.join(__dirname, './web/'),
+      shared: path.join(__dirname, 'shared'),
+      web: path.join(__dirname, 'web'),
+      components: path.join(__dirname, 'web/components'),
     }
   },
   devtool: 'cheap-module-inline-source-map',

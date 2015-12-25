@@ -1,0 +1,19 @@
+.app {
+  height: 100%;
+}
+
+.app .left-pane {
+  padding: 20px 40px;
+  float: left;
+  height: 100%;
+  width: 50%;
+  position: relative;
+}
+
+.app .right-pane {
+  padding: 20px 40px;
+  float: right;
+  height: 100%;
+  width: 50%;
+  position: relative;
+}

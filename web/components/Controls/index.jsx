@@ -10,6 +10,11 @@ module.exports = React.createClass({
   displayName: 'Controls',
 
   render: function(){
-    return <div className="Controls"></div>;
+    return (
+      <div className="controls-container">
+        <div className="controls">
+        </div>
+      </div>
+    );
   }
 });

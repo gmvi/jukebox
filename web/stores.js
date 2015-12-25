@@ -12,9 +12,6 @@ var general = exports.general = Reflux.createStore({
   state: {
     mode: null,
     pathtoken: null,
-    roomid: null,
-    roomname: null,
-    roomkey: null,
     error: null,
   },
 
@@ -60,17 +57,23 @@ var general = exports.general = Reflux.createStore({
           actions.general.handleError('createRoom', res);
         } else {
           actions.general.clearError();
+          actions.general.roomCreated();
           _.assign(this.state, {
             mode: MODE.HOST,
             pathtoken: res.body.uri_token,
-            roomid: res.body.id,
-            roomname: res.body.name,
-            roomkey: res.body.key,
           });
           this.updateHistory();
           this.trigger();
         }
       }).bind(this));
+  },
+
+  onJoinRoom: function(password) {
+    // ignore password for now
+    // register with host
+    this.state.mode = MODE.CLIENT;
+    this.state.error = null;
+    this.trigger();
   },
 
   onHandleError: function(context, res) {
@@ -101,25 +104,40 @@ var general = exports.general = Reflux.createStore({
   },
 });
 
-exports.create = Reflux.createStore({
-  listenables: [actions.create],
-  state: { 
-    name: 'Example Room Name!', 
-    pathtoken: 'example-room-name',
-    password: 'correct horse battery staple', 
-    autoPathtoken: true, 
-    valid: true, 
+var room = exports.room = Reflux.createStore({
+  state: {
+    id: null,
+    pathtoken: null,
+    name: null,
+    key: null,
   },
 
-  getInitialState: function() {
-    return this.state;
+  init: function() {
+    this.listenTo(actions.general.roomCreated, this.onRoomCreated);
+    this.load(JSON.parse(localStorage.room || '{}'));
   },
 
-  onVerify: function(pathtoken) {
-    pathtoken = utils.sanitizePathtoken(pathtoken);
-    request.get('/api/rooms/'+pathtoken, function(err, res) {
-      console.log(err, res);
-    });
+  load: function(state) {
+    _.assign(this.state, _.pick(state, Object.keys(this.state)));
+    this.trigger();
   },
 
+  onRoomCreated: function(room) {
+    this.load(room);
+    localStorage.room = JSON.stringify(this.state);
+  },
+});
+
+var playlist = exports.playlist = Reflux.createStore({
+  state: [],
+
+  init: function() {
+  },
+});
+
+var queue = exports.queue = Reflux.createStore({
+  state: [],
+
+  init: function() {
+  },
 });

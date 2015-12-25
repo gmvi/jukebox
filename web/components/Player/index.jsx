@@ -7,9 +7,9 @@ var React = require('react');
 require('./style.css');
 
 module.exports = React.createClass({
-  displayName: 'PlaylistPane',
+  displayName: 'Player',
 
   render: function(){
-    return <div className="PlaylistPane"></div>;
+    return <div className="player"></div>;
   }
 });

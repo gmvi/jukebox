@@ -7,6 +7,7 @@ var React = require('react'),
 var Header = require('components/Header'),
     CreateView = require('components/CreateView'),
     JoinView = require('components/JoinView'),
+    MainView = require('components/MainView'),
     stores = require('../../stores');
 var shared = require('shared'),
     MODE = shared.MODE;
@@ -21,9 +22,12 @@ module.exports = React.createClass({
     var content = (function() {
       switch (this.state.mode) {
         case MODE.CREATE:
-          return <CreateView error={this.state.error} />
+          return <CreateView />
         case MODE.JOIN:
-          return <JoinView error={this.state.error} />
+          return <JoinView />
+        case MODE.HOST:
+        case MODE.CLIENT:
+          return <MainView />
         default: // MODE.ERROR
           return (
             <div>

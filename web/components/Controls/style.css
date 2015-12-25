@@ -1,3 +1,17 @@
-.Controls {
+.controls-container {
+  padding: 20px 40px 0;
+  height: 200px;
+  width: 100%;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+
+.controls {
+  height: 100%;
+  border: 2px solid black;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding: 10px;
   background-color: lightblue;
 }
