@@ -104,7 +104,46 @@ var general = exports.general = Reflux.createStore({
   },
 });
 
+var localStorageMixin = function(attr) {
+  return {
+    load: function(state) {
+      if (state == undefined) {
+        var stored = localStorage[attr]; // will be a string or undefined
+        if (stored == undefined || stored == 'undefined' || stored == 'null') {
+          // reset this.state
+          if (_.isString(this.state)) {
+            this.state = "";
+          } else if (_.isArray(this.state)) {
+            this.state = [];
+          } else {
+            Object.keys(this.state).forEach(function(key) {
+              this.state[key] = null;
+            }, this);
+          }
+        } else {
+          this.load(JSON.parse(stored));
+        }
+      } else {
+        if (_.isString(this.state)) {
+          this.state = state;
+        } else if (_.isArray(this.state)) {
+          this.state = state.slice();
+        } else {
+          Object.keys(this.state).forEach(function(key) {
+            this.state[key] = state[key];
+          }, this);
+        }
+      }
+      this.trigger();
+    },
+    dump: function() {
+      localStorage[attr] = JSON.stringify(this.state);
+    },
+  };
+};
+
 var room = exports.room = Reflux.createStore({
+  mixins: [localStorageMixin('room')],
   state: {
     id: null,
     pathtoken: null,
@@ -114,30 +153,32 @@ var room = exports.room = Reflux.createStore({
 
   init: function() {
     this.listenTo(actions.general.roomCreated, this.onRoomCreated);
-    this.load(JSON.parse(localStorage.room || '{}'));
-  },
-
-  load: function(state) {
-    _.assign(this.state, _.pick(state, Object.keys(this.state)));
-    this.trigger();
+    this.load();
   },
 
   onRoomCreated: function(room) {
     this.load(room);
-    localStorage.room = JSON.stringify(this.state);
+    this.dump();
   },
 });
 
 var playlist = exports.playlist = Reflux.createStore({
-  state: [],
+  mixins: [localStorageMixin('playlist')],
+
+  state: [ { id: 0, track: 'Track 1', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 1, track: 'Track 2', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 2, track: 'Track 3', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 3, track: 'Track 4', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 4, track: 'Track 5', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 5, track: 'Track 6', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, ],
 
   init: function() {
+    // this.load();
   },
+
 });
 
 var queue = exports.queue = Reflux.createStore({
-  state: [],
+  mixins: [localStorageMixin('queue')],
+
+  state: [ { id: 0 }, ],
 
   init: function() {
+    // this.load();
   },
 });

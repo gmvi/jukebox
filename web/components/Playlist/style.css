@@ -1,3 +1,5 @@
-.Sidebar {
-  background: darkblue;
+.playlist {
+  background: pink;
+  border: 2px solid black;
+  margin: 0;
 }

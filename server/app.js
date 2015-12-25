@@ -66,16 +66,7 @@ var server = http.createServer(app);
 app.use(bodyparser.json());
 app.use(bodyparser.urlencoded({ extended:false }));
 // static folders and files
-app.get('/assets/bundle.js', function(req, res) {
-  res.sendFile(path.join(__dirname, '..',
-    'assets/bundle.js'
-  ));
-});
-app.get('/assets/bootstrap.css', function(req, res) {
-  res.sendFile(path.join(__dirname, '..',
-    'node_modules/bootstrap/dist/css/bootstrap.min.css'
-  ));
-});
+app.use('/assets', express.static(path.resolve(__dirname, '../assets')));
 
 // Request logging.
 if (global.config.logRequests) {
