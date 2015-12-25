@@ -11,10 +11,11 @@ var _              = require('lodash'),
     commander      = require('commander'),
     express        = require('express'),
     expressWinston = require('express-winston'),
-    peer           = require('peer'),
-    winston        = require('winston'),
     handlebars     = require('handlebars'),
-    stringEscape   = require('js-string-escape');
+    peer           = require('peer'),
+    socketio       = require('socket.io'),
+    stringEscape   = require('js-string-escape'),
+    winston        = require('winston');
 // local
 var defaultConfig = require('./default-config.json'),
     utils         = require('./utils');
@@ -81,6 +82,9 @@ if (global.config.logRequests) {
     msg: 'HTTP {{req.method}} {{req.url}}',
   }));
 }
+
+// Set up socket.io
+var io = socketio(server);
 
 // Set up signaling server.
 // force PeerServer's debug option
