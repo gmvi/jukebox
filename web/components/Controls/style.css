@@ -1,3 +1,81 @@
-.Controls {
+.controls-container {
+  padding: 20px 40px 0;
+  width: 100%;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+
+.controls {
+  height: 100%;
+  border: 2px solid black;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
   background-color: lightblue;
+  overflow: hidden;
+  height: 432px;
+}
+
+.controls.collapsed {
+  height: 32px;
+}
+
+.controls .tabs {
+  border-bottom: 1px solid black;
+  height: 30px;
+  text-align: center;
+}
+
+.controls .tabs > * {
+  float: left;
+}
+
+.controls .spaced-tabs {
+  width: 100%;
+  height: 100%;
+  padding-right: 60px;
+  margin-right: -60px;
+}
+.controls .spaced-tabs > .tab {
+  width: 25%;
+}
+.controls .tabs > .tab {
+  width: 30px;
+}
+.controls .tabs > .tab {
+  width: 30px;
+}
+
+.controls .tab {
+  display: inline-block;
+  height: 30px;
+  line-height: 30px;
+  border: solid black;
+  border-width: 0 1px 0 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.controls .tab:hover {
+  background-color: rgba(0,0,0,.1);
+}
+
+.controls .tabs > .tab:last-child {
+  border: none;
+}
+
+.controls .tab-settings {
+  height: 100%;
+  padding: 
+}
+
+.controls .icon {
+  display: inline-block;
+  font-family: FontAwesome;
+  width: 24px;
+}
+
+.controls .controls-content {
+  width: 100%;
+  height: 400px;
 }

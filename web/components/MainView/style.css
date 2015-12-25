@@ -1,0 +1,34 @@
+.app {
+  height: 100%;
+  width: 480px;
+}
+
+.app .left-pane,
+.app .right-pane {
+  padding: 20px 40px;
+}
+
+.app .left-pane .playlist {
+  margin-top: 40px;
+}
+
+@media (min-width: 960px) {
+  .app {
+    width: 960px;
+  }
+
+  .app .left-pane {
+    float: left;
+    height: 100%;
+    width: 50%;
+    position: relative;
+  }
+
+  .app .right-pane {
+    float: right;
+    height: 100%;
+    width: 50%;
+    position: relative;
+  }
+}
+

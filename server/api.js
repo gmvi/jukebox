@@ -1,6 +1,8 @@
+var crypto      = require('crypto'),
+    querystring = require('querystring');
 var _       = require('lodash'),
-    crypto  = require('crypto'),
     express = require('express'),
+    request = require('superagent'),
     winston = require('winston');
 var models = require('./models');
 var Room = models.Room;
@@ -123,4 +125,32 @@ router.delete('/rooms/:id', function(req, res, next) {
           res.sendStatus(204);
         }, next);
       });
+});
+
+router.get('/search/soundcloud', function(req, res, next) {
+  if (!req.query.q) {
+    res.send([]);
+  } else {
+    var qs = querystring.encode({
+      client_id: global.config.searchTokens.soundcloud,
+      q: req.query.q,
+    });
+    var url = 'http://api.soundcloud.com/tracks/?' + qs;
+    request.get(url)
+      .end(function(err, response) {
+      if (err) next(err);
+      else {
+        res.send(response.body.filter(function(track) {
+          return track.streamable;
+        }).map(function(track) {
+          return {
+            id: track.id,
+            track: track.title,
+            artist: track.user.username,
+            art: track.artwork_url,
+          };
+        }));
+      }
+    });
+  }
 });

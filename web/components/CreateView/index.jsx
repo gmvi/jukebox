@@ -16,10 +16,6 @@ require('./style.css');
 
 var RoomForm = React.createClass({
   displayName: 'RoomForm',
-  propTypes: {
-    pathtoken: React.PropTypes.string,
-    error: React.PropTypes.string,
-  },
   mixins: [LinkedStateMixin],
   
   getInitialState: function() {
@@ -109,8 +105,8 @@ var RoomForm = React.createClass({
             </button>
           </div>
         </form>
-        <div className={cx('error', {hidden: !this.props.error})}>
-          {this.props.error}
+        <div className={cx('error', {hidden: !stores.general.error})}>
+          {stores.general.error}
         </div>
       </div>
     );
@@ -119,17 +115,14 @@ var RoomForm = React.createClass({
 
 module.exports = React.createClass({
   displayName: 'CreateView',
-  propTypes: {
-    error: React.PropTypes.string,
-  },
 
   render: function() {
     return (
-      <div className="CreateView">
+      <div id="CreateView" className="landing">
         <p className="lead">
           {strings.CREATE_LEAD}
         </p>
-        <RoomForm error={this.props.error}/>
+        <RoomForm />
       </div>
     );
  }

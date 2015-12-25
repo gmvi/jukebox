@@ -1,21 +1,23 @@
 var _ = require('lodash');
 
-function Enum(values) {
+var Enum = exports.Enum = function Enum(values) {
   // javascript getters are so awkward
   Object.defineProperty(this, 'values', { get: function() {
     // clone the array. Enums must be static.
     return values.slice(0);
   }});
   for (var i = 0; i < values.length; i++) {
-    var value = values[i].toUpperCase();
-    this[value] = value;
+    var lower = values[i].toLowerCase();
+    var upper = values[i].toUpperCase();
+    this[lower] = upper;
+    this[upper] = upper;
   }
   this.has = function(value) {
     return value.toUpperCase() in this;
   }
 }
 
-exports.MODE = new Enum([ 'CREATE', 'JOIN', 'ERROR', 'HOST', 'PEER', ]);
+exports.MODE = new Enum([ 'create', 'join', 'error', 'host', 'client', ]);
 
 var reservedTokens = exports.reservedTokens = [
   'favicon.ico',
