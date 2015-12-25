@@ -109,19 +109,26 @@ var localStorageMixin = function(attr) {
     load: function(state) {
       if (state == undefined) {
         var stored = localStorage[attr]; // will be a string or undefined
-        if (stored == undefined || stored == 'undefined' || stored == 'null') {
-          // reset this.state
-          if (_.isString(this.state)) {
-            this.state = "";
-          } else if (_.isArray(this.state)) {
-            this.state = [];
-          } else {
-            Object.keys(this.state).forEach(function(key) {
-              this.state[key] = null;
-            }, this);
-          }
+        // but if 'undefined' or 'null' is stored, there's probably a bug on the
+        // write side
+        if (stored == 'undefined' || stored == 'null') {
+          throw new Error('invalid representation found in localStorage' +
+                          stored);
+        } else if (stored == undefined) {
+          // nothing to load
         } else {
           this.load(JSON.parse(stored));
+        }
+      } else if (state == null) {
+        // reset this.state
+        if (_.isString(this.state)) {
+          this.state = "";
+        } else if (_.isArray(this.state)) {
+          this.state = [];
+        } else {
+          Object.keys(this.state).forEach(function(key) {
+            this.state[key] = null;
+          }, this);
         }
       } else {
         if (_.isString(this.state)) {
@@ -159,6 +166,20 @@ var room = exports.room = Reflux.createStore({
   onRoomCreated: function(room) {
     this.load(room);
     this.dump();
+  },
+});
+
+var player = exports.player = Reflux.createStore({
+  mixins: [localStorageMixin('player')],
+  state: {
+    playing: false,
+    isSpotify: null,
+    pointer: null,
+  },
+
+  init: function() {
+    this.load();
+    this.playing = false;
   },
 });
 
