@@ -8,20 +8,22 @@ var general = exports.general = Reflux.createActions([
   "joinRoom",
   "roomJoined",
 
+  "setSelfPeer",
+
   "handleError",
   "clearError",
 ]);
 
-var hostPeer = exports.hostPeer = Reflux.createActions([
-  "connection",
+var comms = exports.comms = Reflux.createActions([
+  "listen",
+  "connect",
+  "receive",
   "send",
-  "recieve",
 ]);
 
-var clientPeer = exports.clientPeer = Reflux.createActions([
-  "connect",
-  "send",
-  "recieve",
+var queue = exports.queue = Reflux.createActions([
+  "addTrack",
+  "removeTrack",
 ]);
 
 var playlist = exports.playlist = Reflux.createActions([
@@ -32,7 +34,7 @@ var playlist = exports.playlist = Reflux.createActions([
   "songChanged",
 ]);
 
-var controller = exports.controls = Reflux.createActions([
+var player = exports.player = Reflux.createActions([
   "togglePause",
   "next",
   "previous"

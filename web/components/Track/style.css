@@ -1,0 +1,40 @@
+.track {
+  list-style: none;
+  height: 48px;
+  padding: 4px;
+  margin: 2px;
+  border: 2px solid black;
+  border-radius: 8px;
+  background: aliceblue;
+}
+
+.track-art-container {
+  display: inline-block;
+  float: left;
+  height: 32px;
+  width: 32px;
+  margin: 2px;
+}
+
+.track-art {
+  max-height: 32px;
+  max-width: 32px;
+}
+
+.track-main {
+  display: inline-block;
+  float: left;
+  width: 270px;
+  padding: 0 4px 0 4px;
+}
+
+.track-track, .track-album, .track-artist {
+  display: block;
+  height: 18px;
+  line-height: 18px;
+  font-size: 14px;
+}
+
+.track-album {
+  display: none;
+}

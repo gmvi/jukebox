@@ -3,9 +3,14 @@
 'use strict';
 
 var React = require('react'),
-    cx    = require('classnames');
+    LinkedStateMixin = React.addons.LinkedStateMixin,
+    cx    = require('classnames'),
+    request = require('superagent');
 
-var shared = require('shared');
+var shared = require('shared'),
+    actions = require('web/actions'),
+    Track  = require('components/Track'),
+    panes = require('./panes');
 
 var TAB = new shared.Enum([ 'youtube', 'soundcloud', 'spotify', 'upload',
                             'settings', 'collapsed' ]);
@@ -22,15 +27,22 @@ module.exports = React.createClass({
   },
 
   tab: function(newTab) {
-    newTab = TAB[newTab];
+    var self = this;
+    var upper = TAB[newTab];
     var controls = this;
     return function(e) {
-      controls.setState({tab: newTab});
+      controls.setState({tab: upper});
+      setTimeout(function() {
+        if (self.refs[newTab] && 'function' == typeof self.refs[newTab].focus) {
+          self.refs[newTab].focus();
+        }
+      }, 0);
     };
   },
 
-  render: function(){
+  render: function() {
     var collapsed = this.state.tab == TAB.COLLAPSED;
+    var cxstack = cx( 'controls-stack', 'show-'+this.state.tab.toLowerCase());
     return (
       <div className="controls-container">
         <div className={cx('controls', {collapsed: collapsed})}>
@@ -56,7 +68,22 @@ module.exports = React.createClass({
               <span className="icon fa-minus" />
             </div>
           </div>
-          <div className="controls-content">
+          <div className={cxstack}>
+            <div className="controls-content controls-youtube">
+              <panes.SearchPane ref="youtube" service="youtube" />
+            </div>
+            <div className="controls-content controls-soundcloud">
+              <panes.SearchPane ref="soundcloud" service="soundcloud" />
+            </div>
+            <div className="controls-content controls-spotify">
+              <panes.SearchPane ref="spotify" service="spotify" />
+            </div>
+            <div className="controls-content controls-upload">
+              <panes.UploadPane ref="upload" />
+            </div>
+            <div className="controls-content controls-settings">
+              <panes.SettingsPane ref="settings" />
+            </div>
           </div>
         </div>
       </div>

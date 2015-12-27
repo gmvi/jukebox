@@ -48,7 +48,7 @@ module.exports = React.createClass({
             />
           </div>
           <div className="input-group center">
-            <button onClick={this.handleJoinRoom} >
+            <button className="btn" onClick={this.handleJoinRoom} >
               Join Room
             </button>
           </div>

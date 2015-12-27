@@ -112,33 +112,20 @@ var localStorageMixin = function(attr) {
         // but if 'undefined' or 'null' is stored, there's probably a bug on the
         // write side
         if (stored == 'undefined' || stored == 'null') {
-          throw new Error('invalid representation found in localStorage' +
+          throw new Error('invalid representation found in localStorage: ' +
                           stored);
-        } else if (stored == undefined) {
-          // nothing to load
-        } else {
+        } else if (stored != undefined) {
           this.load(JSON.parse(stored));
         }
-      } else if (state == null) {
-        // reset this.state
-        if (_.isString(this.state)) {
-          this.state = "";
-        } else if (_.isArray(this.state)) {
-          this.state = [];
-        } else {
-          Object.keys(this.state).forEach(function(key) {
-            this.state[key] = null;
-          }, this);
-        }
       } else {
-        if (_.isString(this.state)) {
-          this.state = state;
-        } else if (_.isArray(this.state)) {
+        if (_.isArray(this.state)) {
           this.state = state.slice();
-        } else {
+        } else if (_.isObject(this.state)) {
           Object.keys(this.state).forEach(function(key) {
             this.state[key] = state[key];
           }, this);
+        } else {
+          this.state = state;
         }
       }
       this.trigger();
@@ -156,6 +143,7 @@ var room = exports.room = Reflux.createStore({
     pathtoken: null,
     name: null,
     key: null,
+    peer: null,
   },
 
   init: function() {

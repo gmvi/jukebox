@@ -3,7 +3,8 @@ var crypto      = require('crypto'),
 var _       = require('lodash'),
     express = require('express'),
     request = require('superagent'),
-    winston = require('winston');
+    winston = require('winston'),
+    oboe    = require('oboe');
 var models = require('./models');
 var Room = models.Room;
 
@@ -127,30 +128,91 @@ router.delete('/rooms/:id', function(req, res, next) {
       });
 });
 
+var streamingEdit = function(url, out, path, transform) {
+  out.write('[');
+  var first = true;
+  oboe(url).node(path, function(track) {
+    transform(track, function(transformed) {
+      if (!first) out.write(',');
+      else first = false;
+      out.write(JSON.stringify(transformed));
+    });
+  }).done(function() {
+    out.write(']');
+    out.end();
+  });
+}
+
 router.get('/search/soundcloud', function(req, res, next) {
   if (!req.query.q) {
     res.send([]);
   } else {
+    res.setHeader('Content-Type', 'application/json');
     var qs = querystring.encode({
       client_id: global.config.searchTokens.soundcloud,
       q: req.query.q,
+      limit: 20,
     });
     var url = 'http://api.soundcloud.com/tracks/?' + qs;
-    request.get(url)
-      .end(function(err, response) {
-      if (err) next(err);
-      else {
-        res.send(response.body.filter(function(track) {
-          return track.streamable;
-        }).map(function(track) {
-          return {
-            id: track.id,
-            track: track.title,
-            artist: track.user.username,
-            art: track.artwork_url,
-          };
-        }));
+    streamingEdit(url, res, '*', function(track, write) {
+      if (track.streamable) {
+        var art = track.artwork_url
+                ? track.artwork_url.replace(/large/, 'small')
+                : null;
+        write({
+          id: track.id,
+          track: track.title,
+          artist: track.user.username,
+          art: art,
+        });
       }
+    });
+  }
+});
+
+router.get('/search/youtube', function(req, res, next) {
+  if (!req.query.q) {
+    res.send([]);
+  } else {
+    res.setHeader('Content-Type', 'application/json');
+    var qs = querystring.encode({
+      key: global.config.searchTokens.youtube,
+      type: 'video',
+      part: 'snippet',
+      q: req.query.q,
+      maxResults: 20,
+    });
+    var url = 'https://www.googleapis.com/youtube/v3/search?' + qs;
+    streamingEdit(url, res, 'items.*', function(result, write) {
+      write({
+        id: result.id.videoId,
+        track: result.snippet.title,
+        art: result.snippet.thumbnails.default.url,
+      });
+    });
+  }
+});
+
+router.get('/search/spotify', function(req, res, next) {
+  if (!req.query.q) {
+    res.send([]);
+  } else {
+    res.setHeader('Content-Type', 'application/json');
+    var qs = querystring.encode({
+      q: req.query.q,
+      type: 'track',
+      market: 'US',
+      limit: 20,
+    });
+    var url = 'https://api.spotify.com/v1/search?' + qs;
+    streamingEdit(url, res, 'tracks.items.*', function(result, write) {
+      write({
+        id: result.id,
+        track: result.name,
+        album: result.album.name,
+        artist: result.artists[0].name,
+        art: result.album.images[result.album.images.length-1].url,
+      });
     });
   }
 });

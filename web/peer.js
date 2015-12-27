@@ -7,10 +7,12 @@ var peer = new Peer({
 var connections = Object.create(null);
 
 peer.on('open', function(id) {
+  actions.general.setPeer(id);
 });
 
 peer.on('connection', function(dataConnection) {
-  
+  var id = dataConnection.peer;
+  connections[id] = dataConnection;
 });
 
 peer.on('close', function() {

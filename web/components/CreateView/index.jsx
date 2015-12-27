@@ -99,7 +99,8 @@ var RoomForm = React.createClass({
             />
           </div>
           <div className="input-group center">
-            <button onClick={this.handleCreateRoom}
+            <button className="btn"
+                    onClick={this.handleCreateRoom}
                     disabled={!this.state.valid}>
               New Room
             </button>
