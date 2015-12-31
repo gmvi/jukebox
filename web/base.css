@@ -28,8 +28,22 @@ body {
   overflow-y: hidden;
 }
 
+.scroll-container {
+  box-sizing: content-box;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 .scroll {
+  height: 100%;
+  width: 100%;
   overflow-y: auto;
+}
+
+.scroll.no-scrollbar {
+  box-sizing: content-box;
+  padding-right: 15px;
 }
 
 .input-group {

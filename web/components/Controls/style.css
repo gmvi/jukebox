@@ -12,8 +12,8 @@
   border-bottom: 0;
   border-radius: 16px 16px 0 0;
   background-color: lightblue;
-  overflow: hidden;
   height: 432px;
+  overflow: hidden;
 }
 
 .controls.collapsed {
@@ -110,16 +110,20 @@
   background: none;
 }
 
-.search-pane .results-description {
-  margin: 0 0 12px;
-}
-
 .search-pane > .scroll {
   height: 340px;
 }
 
+.search-pane .results-description {
+  margin: 0 -15px 12px 0;
+}
+
+.search-pane .search-results {
+  margin-right: -15px;
+}
+
 .search-result-item .track {
-  padding-right: 36px;
+  padding-right: 44px;
 }
 
 .search-result-item .button-add-track {

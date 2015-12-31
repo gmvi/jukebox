@@ -3,6 +3,7 @@ var _       = require('lodash'),
     request = require('superagent');
 
 var actions = require('./actions'),
+    peer    = require('./peer'),
     strings = require('./strings'),
     utils   = require('shared'),
     MODE    = utils.MODE;

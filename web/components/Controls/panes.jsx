@@ -89,30 +89,31 @@ var SearchPane = exports.SearchPane = React.createClass({
             onClick={this.handleSearch}
           />
         </form>
-        <div className="scroll">
-          <p className={cxdescription} >
-            { "Results for " + this.state.resultQuery }
-          </p>
-          <div className="search-results">
-            { this.state.results.map(function(track) {
-                console.log('rendering tracks');
-                return (
-                  <div key={track.id}
-                       className="search-result-item overlay-container" >
-                    <Track
-                      track={track.track} 
-                      album={track.album}
-                      artist={track.artist}
-                      art={track.art}
-                    />
-                    <button className="button-add-track overlay-right"
-                            onClick={this.addTrackHandler(track)} >
-                      <span className="fa fa-plus" />
-                    </button>
-                  </div>
-                );
-              }, this)
-            }
+        <div className="scroll-container">
+          <div className="scroll no-scrollbar">
+            <p className={cxdescription} >
+              { "Results for " + this.state.resultQuery }
+            </p>
+            <div className="search-results">
+              { this.state.results.map(function(track) {
+                  return (
+                    <div key={track.id}
+                         className="search-result-item overlay-container" >
+                      <Track
+                        track={track.track} 
+                        album={track.album}
+                        artist={track.artist}
+                        art={track.art}
+                      />
+                      <button className="button-add-track overlay-right"
+                              onClick={this.addTrackHandler(track)} >
+                        <span className="fa fa-plus" />
+                      </button>
+                    </div>
+                  );
+                }, this)
+              }
+            </div>
           </div>
         </div>
       </div>

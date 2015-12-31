@@ -11,9 +11,9 @@
 .track-art-container {
   display: inline-block;
   float: left;
-  height: 32px;
-  width: 32px;
-  margin: 2px;
+  height: 36px;
+  width: 36px;
+  padding: 2px;
 }
 
 .track-art {
