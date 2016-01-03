@@ -17,12 +17,12 @@ router.get('/rooms', function(req, res) {
 var knexErrorUniqueSplit = 'SQLITE_CONSTRAINT: UNIQUE constraint failed: ';
 
 router.post('/rooms', function(req, res, next) {
-  Room.validateURIToken(req.body.uri_token).then(function() {
+  Room.validatePathtoken(req.body.pathtoken).then(function() {
     var key = crypto.randomBytes(36).toString('base64');
     var room = new Room({
       name: req.body.name,
       key: key,
-      uri_token: req.body.uri_token,
+      pathtoken: req.body.pathtoken,
       peer: req.body.peer
     });
     room.save().then(function(room) {
@@ -43,9 +43,9 @@ router.post('/rooms', function(req, res, next) {
       next(err);
     });
   }, function(err) {
-    // uri_token error
+    // pathtoken error
     res.status(400).json({
-      "attribute": "uri_token",
+      "attribute": "pathtoken",
       "reason": err.message
     });
   });
@@ -78,9 +78,9 @@ var f = function(req, res, next) {
           });
           return;
         }
-        Room.sanitizeURIToken(req.body.uri_token).then(function(uri_token) {
+        Room.sanitizePathtoken(req.body.pathtoken).then(function(pathtoken) {
           var update = _.pick(req.body, ['name', 'peer']);
-          if (uri_token != null) update.uri_token = uri_token;
+          if (pathtoken != null) update.pathtoken = pathtoken;
           room.save(update).then(function(room) {
             res.json(room.serializePrivate());
           }, function(err) {
@@ -99,7 +99,7 @@ var f = function(req, res, next) {
           });
         }, function(err) {
           res.status(400).json({
-            attribute: 'uri_token',
+            attribute: 'pathtoken',
             reason: err.message
           });
         });

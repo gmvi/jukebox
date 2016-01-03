@@ -2,22 +2,68 @@ var _       = require('lodash'),
     Reflux  = require('reflux'),
     request = require('superagent');
 
-var actions = require('./actions'),
-    peer    = require('./peer'),
-    strings = require('./strings'),
-    utils   = require('shared'),
-    MODE    = utils.MODE;
+var actions   = require('./actions'),
+    transport = require('./transport'),
+    strings   = require('./strings'),
+    utils     = require('shared'),
+    MODE      = utils.MODE;
+
+var storage = null;
+
+// Events:
+//   storage/{key}     emitted on storage events
+//   namespace-change  emitted when the namespace has changed
+var emitter = new EventEmitter();
+
+var stateMixin = {
+  getInitialState: function() {
+    return this.state;
+  },
+  setState: function(newState) {
+    Object.keys(this.state).forEach(function(key) {
+      this.state[key] = newState[key];
+    }, this);
+    this.trigger();
+  },
+};
+
+var localStorageMixin = function(key) {
+  return {
+    init: function() {
+      emitter.on('namespace-change', function() {
+        this.load();
+        emitter.on('storage/'+key, function(e) {
+          this.setState(JSON.parse(e.newValue));
+        }, this);
+      }, this);
+    },
+    load: function() {
+      var value = storage.getItem(key); // will be a string or null
+      // but if 'undefined' or 'null' is stored, there's probably a bug on
+      // the write side
+      if (value === null) {
+        // nothing to load
+        return;
+      } else if (value === 'undefined' || value === 'null') {
+        throw new Error('invalid representation found in localStorage: ' +
+                        value);
+      } else {
+        this.setState(JSON.parse(value));
+      }
+    },
+    dump: function() {
+      localStorage.setItem(JSON.stringify(this.state));
+    },
+  };
+};
 
 var general = exports.general = Reflux.createStore({
-  listenables: [actions.general],
+  mixins: [stateMixin],
+  listenables: [actions.general, actions.peer],
   state: {
     mode: null,
     pathtoken: null,
     error: null,
-  },
-
-  getInitialState: function() {
-    return this.state;
   },
 
   // init pulls the initial state from window.vars, which should have been set
@@ -25,58 +71,64 @@ var general = exports.general = Reflux.createStore({
   init: function() {
     // sanity check that window.vars.mode is a member of the MODE enum
     if (window.vars.mode && MODE.has(window.vars.mode)) {
-      this.state.mode = window.vars.mode;
-    } else if (window.location.pathname != '/') {
-      // if this happens, the server is violating spec :(
-      // let's hope the landing page is more stable?
-      window.location = '/';
+      this.setState({ mode: window.vars.mode });
     } else {
-      this.state.mode = MODE.ERROR;
+      // if this happens, the server is violating spec :(
+      this.setState({ mode: MODE.ERROR });
     }
-    this.state.pathtoken = window.location.pathname.slice(1);
+    this.setState({ pathtoken: window.location.pathname.slice(1) });
     window.onpopstate = function(evt) {
-      _.assign(this.state, evt.state);
-      this.trigger();
+      this.setState(evt.state);
+    };
+  },
+
+  onPeerEstablished: function(id) {
+    if (this.state.mode === MODE.HOST) {
+        actions.peer.initHost();
+    } else if (this.state.mode === MODE.CLIENT) {
+        actions.peer.initClient();
     }
   },
 
   updateHistory: function() {
     history.pushState(
       this.state,
-      "Peertable: "+this.state.name,
-      '/'+this.state.pathtoken
+      "Peertable: "+this.state.name, // title
+      '/'+this.state.pathtoken // pathname
     );
-    console.log('pushed state:', this.state.pathtoken);
+    console.log('pushed state for', this.state.pathtoken);
   },
 
-  onCreateRoom: function(room) {
-    request.post('/api/rooms')
-      .send({ uri_token: room.pathtoken, name: room.name })
-      .set('Accept', 'application/json')
-      .end((function(err, res) {
-        if (err) {
-          actions.general.handleError('createRoom', res);
-        } else {
-          actions.general.clearError();
-          actions.general.roomCreated();
-          _.assign(this.state, {
-            mode: MODE.HOST,
-            pathtoken: res.body.uri_token,
-          });
-          this.updateHistory();
-          this.trigger();
-        }
-      }).bind(this));
+  onCreateRoomFailed: function(err, res) {
+    console.log('pretend tooltip');
+    actions.general.handleError('createRoom', res);
   },
 
-  onJoinRoom: function(password) {
-    // ignore password for now
+  onCreateRoomCompleted: function(res) {
+    actions.general.clearError();
+    this.setState({
+      mode: MODE.HOST,
+      pathtoken: res.body.pathtoken,
+    });
+    this.updateHistory();
+    actions.peer.initHost();
+  },
+  
+  onJoinRoomFailed: function() {
+    console.log('pretend tooltip');
+    actions.general.handleError('joinRoom', res);
+  },
+
+  onJoinRoomCompleted: function() {
     // register with host
-    this.state.mode = MODE.CLIENT;
-    this.state.error = null;
-    this.trigger();
+    this.setState({
+      mode: MODE.CLIENT,
+      error: null,
+    });
+    actions.peer.initClient();
   },
 
+  // this error handling is terrible
   onHandleError: function(context, res) {
     if (res.status >= 500) {
       this.state.error = strings.ERROR_SERVER_FAILURE;
@@ -84,7 +136,7 @@ var general = exports.general = Reflux.createStore({
     }
     switch (context) {
       case 'createRoom':
-        if (res.status == 400 && res.body.attribute == 'uri_token') {
+        if (res.status == 400 && res.body.attribute == 'pathtoken') {
           switch (res.body.reason) {
             case 'duplicate':
               this.state.error = strings.TOOLTIP_PATHTOKEN_DUPLICATE;
@@ -105,56 +157,44 @@ var general = exports.general = Reflux.createStore({
   },
 });
 
-var localStorageMixin = function(attr) {
-  return {
-    load: function(state) {
-      if (state == undefined) {
-        var stored = localStorage[attr]; // will be a string or undefined
-        // but if 'undefined' or 'null' is stored, there's probably a bug on the
-        // write side
-        if (stored == 'undefined' || stored == 'null') {
-          throw new Error('invalid representation found in localStorage: ' +
-                          stored);
-        } else if (stored != undefined) {
-          this.load(JSON.parse(stored));
-        }
-      } else {
-        if (_.isArray(this.state)) {
-          this.state = state.slice();
-        } else if (_.isObject(this.state)) {
-          Object.keys(this.state).forEach(function(key) {
-            this.state[key] = state[key];
-          }, this);
-        } else {
-          this.state = state;
-        }
-      }
-      this.trigger();
-    },
-    dump: function() {
-      localStorage[attr] = JSON.stringify(this.state);
-    },
-  };
-};
+var auth = exports.auth = Reflux.createStore({
+  mixins: [localStorageMixin('auth')],
+  listenables: [actions.general],
+  state: {},
+
+  init: function() {
+  },
+
+  // maybe let's store host auths differently? force one-host-per-browser by
+  // design? TODO
+  onCreateRoomCompleted: function(res) {
+    this.state = _.pick(res.body, 'key');
+  },
+
+  onJoinRoomCompleted: function(response) {
+    if (response.clientId) {
+      this.state = _.pick(response, 'clientId', 'clientSecret');
+    }
+  },
+});
 
 var room = exports.room = Reflux.createStore({
-  mixins: [localStorageMixin('room')],
+  mixins: [stateMixin],
+  listenables: [actions.general],
   state: {
     id: null,
     pathtoken: null,
-    name: null,
     key: null,
+    password: null,
+    name: null,
     peer: null,
   },
 
-  init: function() {
-    this.listenTo(actions.general.roomCreated, this.onRoomCreated);
-    this.load();
-  },
-
-  onRoomCreated: function(room) {
-    this.load(room);
-    this.dump();
+  onCreateRoomCompleted: function(res) {
+    this.setState(res.body);
+    if (storage) storage.destroy();
+    storage = new NamespacedStorage(id);
+    emitter.emit('namespace-change');
   },
 });
 

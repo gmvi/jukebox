@@ -11,7 +11,7 @@ exports.initialize = function(cb) {
     table.increments();
     table.string('name').defaultTo('Unnamed Room');
     table.string('key').notNullable();
-    table.string('uri_token').unique();
+    table.string('pathtoken').unique();
     table.string('peer').unique();
   }).then(cb||function(){});
 }
@@ -19,14 +19,14 @@ exports.initialize = function(cb) {
 var Room = exports.Room = bookshelf.Model.extend({
   tableName: 'rooms',
   serializePublic: function() {
-    return this.pick(['name', 'uri_token', 'peer']);
+    return this.pick(['id', 'name', 'pathtoken', 'peer']);
   },
   serializePrivate: function() {
-    var json = this.pick(['id', 'name', 'key', 'uri_token', 'peer']);
+    var json = this.pick(['id', 'name', 'key', 'pathtoken', 'peer']);
     return json;
   }
 }, {
-  validateURIToken: function(token) {
+  validatePathtoken: function(token) {
     return new Promise(function(fulfill, reject) {
       var sanitized = utils.sanitizePathtoken(token);
       if (token != sanitized) {

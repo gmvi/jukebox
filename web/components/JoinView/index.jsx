@@ -31,7 +31,9 @@ module.exports = React.createClass({
 
   handleJoinRoom: function(evt) {
     evt.preventDefault();
-    actions.general.joinRoom(this.state.password);
+    actions.general.joinRoom({
+      password: this.state.password,
+    });
   },
 
   render: function() {

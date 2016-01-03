@@ -1,41 +1,48 @@
 var Reflux = require('reflux');
+var request = require('superagent');
 
 var general = exports.general = Reflux.createActions([
-  "createRoom",
-  "roomCreated",
-  "closeRoom",
+  {
+    'createRoom': { asyncResult: true },
+    'updateRoom': { asyncResult: true },
+    'closeRoom': { asyncResult: true },
+    'joinRoom': { asyncResult: true },
+  },
 
-  "joinRoom",
-  "roomJoined",
+  'handleError',
+  'clearError',
 
-  "setSelfPeer",
-
-  "handleError",
-  "clearError",
+  'updateInfo',
 ]);
 
-var comms = exports.comms = Reflux.createActions([
-  "listen",
-  "connect",
-  "receive",
-  "send",
+var peer = exports.peer = Reflux.createActions([
+  'peerEstablished',
+  'initHost',
+  'initClient',
+]);
+
+var clients = exports.clients = Reflux.createActions([
+  'newClient',
+  'selfProfileUpdate',
+  'otherProfileUpdate',
 ]);
 
 var queue = exports.queue = Reflux.createActions([
-  "addTrack",
-  "removeTrack",
+  'selfAddTrack',
+  'selfRemoveTrack',
 ]);
 
 var playlist = exports.playlist = Reflux.createActions([
-  "addSong",
-  "removeSong",
-  "songAdded",
-  "songRemoved",
-  "songChanged",
+  'update',
+  'addTrack',
+  'removeTrack',
 ]);
 
 var player = exports.player = Reflux.createActions([
-  "togglePause",
-  "next",
-  "previous"
+  'togglePause',
+  'next',
+  'previous'
+]);
+
+var files = exports.files = Reflux.createActions([
 ]);

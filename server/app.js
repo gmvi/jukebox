@@ -24,9 +24,11 @@ var shared = require('../shared'),
     MODE   = shared.MODE;
 
 // Parse command line arguments
-// the parity of commander.js coercion functions matters
+// the parity of commander.js coercion functions matters. If a coercion function
+// has parity != 1, the default value is passed in as the second parameter.
 function unaryResolvePath(value) { return path.resolve(value); }
 commander
+    .option('--initdb', 'Initialize the database')
     .option('-h, --hostname [hostname]', 'Restrict to a hostname')
     .option('-p, --port [portnum]',
         'Set the port number [default '+defaultConfig.port+']'
@@ -36,21 +38,20 @@ commander
         'Set the config location [default /etc/peertable.conf.json]',
         unaryResolvePath, '/etc/peertable.conf.json'
     )
-    // the above makes path.resolve a unary function
-    // otherwise, commander will pass the default value as the second parameter
     .parse(process.argv);
+var cmdOpts = _.pick(commander, ['hostname', 'port']);
 
 // Load config, then apply defaults, then override with command line options
 var config = utils.loadConfig(commander.config);
 _.defaultsDeep(config, defaultConfig);
-global.config = _.assign(config, commander.opts(), function(value, other) {
-    // this check is needed because hasOwnProperty returns true on
-    // commander.opts() for unset options
-    return _.isUndefined(other) ? value : other;
+global.config = _.assign(config, cmdOpts, function(value, other) {
+  // this check is needed because commander.hasOwnProperty returns true
+  // for unset options
+  return _.isUndefined(other) ? value : other;
 });
 // automatic config and globals
 global.development = process.env.NODE_ENV !== 'production';
-global.config.host = global.config.hostname+':'+global.config.port;
+global.config.host = (global.config.hostname||'')+':'+global.config.port;
 
 // Set up logging
 winston.level = global.config.logLevel;
@@ -59,6 +60,9 @@ winston.info('loading application logic')
 
 // Connect to database. Loading this module sets up the db connection.
 var models = require('./models');
+if (commander.initdb) {
+  models.initialize();
+}
 
 // Set up express.
 var app = express();
@@ -99,18 +103,18 @@ app.use('/peerjs',
 app.use('/api', require('./api'));
 // only one template for now, so let's have some fun with closures
 var render = (function() {
-    var template = null;
-    var templatepath = path.join(__dirname, 'views/index.hbs');
-    function reload() {
-        var templateString = fs.readFileSync(templatepath).toString()
-        template = handlebars.compile(templateString);
-    }
-    return function(vars) {
-        if (!template || global.development) reload();
-        return template({
-            vars: JSON.stringify(vars)
-        });
-    }
+  var template = null;
+  var templatepath = path.join(__dirname, 'views/index.hbs');
+  function reload() {
+    var templateString = fs.readFileSync(templatepath).toString();
+    template = handlebars.compile(templateString);
+  }
+  return function(vars) {
+    if (!template || global.development) reload();
+    return template({
+      vars: JSON.stringify(vars)
+    });
+  }
 })();
 // TODO handle favicon
 app.get('/favicon.ico', function(req, res) {
@@ -125,7 +129,7 @@ app.get('/', function(req, res) {
 // url for a specific room
 app.get('/:token', function(req, res, next) {
   // try to fetch the room
-  models.Room.where({uri_token: req.params.token})
+  models.Room.where({pathtoken: req.params.token})
     .fetch()
     .then(function(room) {
       if (room) {

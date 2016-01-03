@@ -1,4 +1,5 @@
-var Peer = require('peerjs');
+var _    = require('lodash'),
+    Peer = require('peerjs');
 
 THREAD_TIMEOUT = 1000*60*1; // 1 minute
 
@@ -34,7 +35,7 @@ var generateToken = function(notIn) {
   return token;
 }
 
-var Client = function Client(id, secret, conn) {
+var ClientRecord = function ClientRecord(id, secret, conn) {
   this.id = id;
   this.secret = secret;
   this.connections = {};
@@ -42,7 +43,7 @@ var Client = function Client(id, secret, conn) {
   this.connectionCount = 1;
   this.main = conn.peer;
 }
-Client.prototype = {
+_.assign(ClientRecord.prototype, {
   // adds a peerjs DataConnection to a client record, optionally making it the
   // main connection
   add: function(conn, isMain) {
@@ -78,7 +79,7 @@ Client.prototype = {
     }
     this.connections[this.main].send(data);
   },
-};
+});
 
 // Notes:
 //   A thread is a chain of communication, such as get-post-admit or post-admit.
@@ -94,31 +95,38 @@ Client.prototype = {
 //   post: send data to a resource (may follow a get; an admit may be returned)
 //   admit: acknowledge a post (must follow a post)
 
-function Common() {
+// creates a PeerJS Peer object
+exports.create = function create(callback) {
   // set up main PeerJS object
-  this.peer = new Peer({
-    host: window.location.host,
+  var peer = new Peer({
+    host: window.location.hostname,
     port: window.location.port,
     path: '/peerjs',
   });
   // shared host/client
-  this.peer.on('close', function() {
+  peer.on('close', function() {
     console.log('error: peer closed');
   });
-  this.peer.on('disconnected', function() {
+  peer.on('disconnected', function() {
     console.log('peer disconnected');
+  });
+  peer.on('open', function(id) {
+    callback(null, peer);
+  });
+  peer.on('error', function(err) {
+    console.log('PeerJS Error:', err);
   });
 }
 
-exports.HostController = function HostController(password) {
-  Common.call(this);
-
-  this.password = password;
+exports.HostNode = function HostNode(peer) {
+  this.peer = peer;
+  this.hostSecondaries = {};
   this.clients = {};
   this.threads = {};
   
   // private function makeAuthHandler(conn)
   // returns a handler for a post to the 'auth' resource
+  // conn is a PeerJS DataConnection
   var makeAuthHandler = (function (conn) {
     return (function (auth, respond) {
       // Accept two auth modes: password and token
@@ -129,17 +137,20 @@ exports.HostController = function HostController(password) {
         if (client !== undefined && client.secret === auth.clientSecret) {
           // record connection
           client.add(conn, auth.main);
-          hookUpConnection(client.id, conn);
+          hookUpClient(client.id, conn);
           respond({ accepted: true });
         } else {
           respond({ accepted: false });
         }
-      } else if (auth.password === this.password) {
+      } else if (this.acceptHostSecondary(auth)) {
+
+        this.hostSecondaries[conn.peer] = conn;
+      } else if (this.acceptNewClient(auth)) {
         // register new client
         var clientId = generateToken(this.clients);
         var clientSecret = generateToken();
-        this.clients[clientId] = new Client(clientId, clientSecret, conn);
-        hookUpConnection(conn);
+        this.clients[clientId] = new ClientRecord(clientId, clientSecret, conn);
+        hookUpClient(conn);
         respond({
           accepted: true,
           clientId: clientId,
@@ -152,8 +163,8 @@ exports.HostController = function HostController(password) {
   }).bind(this);
 
   // private method
-  var hookUpConnection = (function (clientId, conn) {
-    conn.on('data', function(data) {
+  var hookUpClient = (function (clientId, conn) {
+    conn.on('data', (function(data) {
       if (data.token in this.clients[clientId].threads) {
         // this data is part of an established thread
         var callback = this.clients[clientId].threads[data.token];
@@ -188,7 +199,7 @@ exports.HostController = function HostController(password) {
           });
         });
       }
-    });
+    }).bind(this));
   }).bind(this);
 
   this.peer.on('connection', function(conn) {
@@ -197,7 +208,7 @@ exports.HostController = function HostController(password) {
     this.get(conn, 'auth', makeAuthHandler(conn));
   });
 }
-exports.HostController.prototype = {
+_.assign(exports.HostNode.prototype, {
   // records a callback for the next event in a thread
   // clientId must be a member of this.clients
   recordCallback: function(clientId, token, callback) {
@@ -210,17 +221,6 @@ exports.HostController.prototype = {
       clearTimeout(timeout);
       invoke(callback, null, body);
     };
-  },
-  listen: function(callback) {
-    // TODO: maybe set up the peer here? What if data flows in before the
-    // handlers are set?
-    if (this.peer.open) {
-      invoke(callback, peer.id);
-    } else {
-      this.peer.on('open', function(id) {
-        invoke(callback, null, peer.id);
-      });
-    }
   },
   // handleGet: function(clientId, resource, sendPost function)
   // sendPost: function(postBody, receiveAdmit callback)
@@ -266,11 +266,10 @@ exports.HostController.prototype = {
       });
     });
   },
-};
+});
 
-exports.ClientController = function ClientController(hostId) {
-  Common.call(this);
-
+exports.ClientNode = function ClientNode(peer, hostId, auth) {
+  this.peer = peer;
   this.hostId = hostId;
   this.connection = null;
   this.threads = {};
@@ -282,7 +281,7 @@ exports.ClientController = function ClientController(hostId) {
     conn.close();
   });
 }
-exports.ClientController.prototype = {
+_.assign(exports.ClientNode.prototype, {
   // records a callback for the next event in a thread
   recordCallback: function(token, callback) {
     var timeout = setTimeout(function() {
@@ -389,4 +388,4 @@ exports.ClientController.prototype = {
       invoke(callback, err, admitBody);
     });
   },
-};
+});
