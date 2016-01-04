@@ -11,13 +11,21 @@ var controller;
 transport.create(function(err, _peer) {
   if (err) throw err;
   peer = _peer;
-  actions.peer.peerEstablished(peer.id);
-  if (stores.general.state.mode === MODE.HOST) {
-    actions.peer.initHost();
-  } else if (stores.general.state.mode === MODE.CLIENT) {
-    actions.peer.initClient();
+  // I know this is poor modularity, but I don't want to add another action
+  stores.room.setState({peer: peer.id});
+  actions.peer.peerEstablished();
+});
+
+actions.general.joinRoom.listen(function() {
+  console.log('joinRoom called, mode:', stores.auth.mode);
+  if (stores.auth.mode == MODE.HOST) {
+    var auth = stores.auth.credentials;
+  } else if (stores.auth.mode == MODE.CLIENT) {
+    var auth = stores.auth.credentials;
+  } else {
+    // join with password
+    // from where?
   }
-  // TODO: what do?
 });
 
 // Host logic

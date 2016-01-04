@@ -60,8 +60,8 @@ var localStorageMixin = function(key) {
   };
 };
 
-// The stores. Everything depends on room, so that loads first.
-
+// The stores.
+// Everything depends on room, so that loads first.
 var room = exports.room = Reflux.createStore({
   mixins: [stateMixin],
   listenables: [actions.general],
@@ -79,6 +79,7 @@ var room = exports.room = Reflux.createStore({
     }
     if (this.state.id) {
       console.log('loaded room.id:', this.state.id);
+      // load the Storage device for the room once id is set
       storage = new NamespacedStorage(this.state.id);
       emitter.emit('room-established');
     }
@@ -86,6 +87,7 @@ var room = exports.room = Reflux.createStore({
 
   onCreateRoomCompleted: function(res) {
     this.setState(res.body);
+    // load the Storage device for the room once id is set
     storage = new NamespacedStorage(res.body.id);
     emitter.emit('room-established');
   },
@@ -101,6 +103,7 @@ var auth = exports.auth = Reflux.createStore({
   credentials: null,
 
   init: function() {
+    // If a room id was set then try to load authorization credentials.
     if (room.state.id) {
       console.log('loading auth');
       var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
@@ -109,6 +112,7 @@ var auth = exports.auth = Reflux.createStore({
       if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
         console.log('found matching host auth');
         this.mode = MODE.HOST;
+        room.setState(_.pick(hostAuth, 'password'));
         this.credentials = _.pick(hostAuth, 'key');
       } else if (_.isPlainObject(clientAuth)) {
         console.log('found client auth');
@@ -117,8 +121,6 @@ var auth = exports.auth = Reflux.createStore({
       } else {
         console.log('no auth found');
       }
-    } else {
-      emitter.on('room-established', this.init, this);
     }
   },
 
@@ -126,6 +128,7 @@ var auth = exports.auth = Reflux.createStore({
     if (this.mode == MODE.HOST) {
       localStorage.setItem('hostAuth', JSON.stringify({
         id: room.state.id,
+        password: room.state.password,
         key: this.credentials.key,
       }));
     } else if (this.mode == MODE.CLIENT) {
@@ -143,9 +146,12 @@ var auth = exports.auth = Reflux.createStore({
   },
 
   onJoinRoomCompleted: function(response) {
-    this.mode = MODE.CLIENT;
-    this.credentials = _.pick(response, 'clientId', 'clientSecret');
-    this.dump();
+    // if the auth mode is unset, a password-auth has occurred.
+    if (this.mode == null) {
+      this.mode = MODE.CLIENT;
+      this.credentials = _.pick(response, 'clientId', 'clientSecret');
+      this.dump();
+    }
   },
 
   onJoinRoomFailed: function() {
@@ -170,9 +176,21 @@ var general = exports.general = Reflux.createStore({
   },
 
   init: function() {
-    if (window.vars && window.vars.mode && MODE.has(window.vars.mode)) {
-      console.log('setting mode from window.vars');
-      this.setState({mode: window.vars.mode});
+    if (!window.vars) {
+      console.error('no global vars set');
+      return;
+    }
+    if (window.vars.mode === MODE.CREATE) {
+      console.log('setting mode from window.vars: CREATE');
+      this.setState({mode: MODE.CREATE});
+    } else if (window.vars.mode === MODE.JOIN) {
+      console.log('setting mode from window.vars: JOIN');
+      this.setState({mode: MODE.JOIN});
+      // if credentials have been found, then try to join the room
+      if (auth.mode) {
+        console.log('joining with found credentials');
+        actions.general.joinRoom();
+      }
     } else {
       console.log('invalid mode in window.vars');
       this.setState({mode: MODE.ERROR});
@@ -181,7 +199,6 @@ var general = exports.general = Reflux.createStore({
     window.onpopstate = function(evt) {
       this.setState(evt.state);
     };
-    console.log('initial mode:', this.state.mode);
   },
 
   updateHistory: function() {
@@ -199,13 +216,12 @@ var general = exports.general = Reflux.createStore({
   },
 
   onCreateRoomCompleted: function(res) {
-    actions.general.clearError();
     this.setState({
       mode: MODE.HOST,
       pathtoken: res.body.pathtoken,
+      error: null,
     });
     this.updateHistory();
-    actions.peer.initHost();
   },
   
   onJoinRoomFailed: function() {
@@ -219,7 +235,6 @@ var general = exports.general = Reflux.createStore({
       mode: MODE.CLIENT,
       error: null,
     });
-    actions.peer.initClient();
   },
 
   // this error handling is terrible
