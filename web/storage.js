@@ -19,36 +19,32 @@ var addNamespace = function(namespace) {
   var key = TOP_NAMESPACE + SEP + SEP + 'namespaces';
   // TODO: optimize this with a :-concatenated string instead of JSON.
   var namespaces = JSON.parse(localStorage.getItem(key));
-  namespaces.push(namespace);
+  if (!_.isArray(namespaces)) namespaces = [];
+  if (!_.contains(namespaces, namespace)) namespaces.push(namespace);
   localStorage.setItem(key, JSON.stringify(namespaces));
   var prefix = TOP_NAMESPACE + SEP + namespace + SEP + SEP;
-  localStorage.setItem(prefix + 'keys', []);
-  localStorage.setItem(prefix + 'ts', TIME.now());
+  localStorage.setItem(prefix + 'keys', '[]');
+  localStorage.setItem(prefix + 'ts', Date.now());
 };
 
 var clearNamespaces = function() {
   var namespacesKey = TOP_NAMESPACE + SEP + SEP + 'namespaces';
-  var namespaces = JSON.parse(localStorage.getItem(key));
-  namespaces.forEach(function(namespace) {
+  var namespaces = JSON.parse(localStorage.getItem(namespacesKey));
+  if (!_.isArray(namespaces)) namespaces = [];
+  for (var i = 0; i < namespaces.length; i++) {
+    var namespace = namespaces[i];
     var prefix = TOP_NAMESPACE + SEP + namespace + SEP;
     var key = prefix + SEP + 'ts';
     var timestamp = Number(localStorage.getItem(key));
     if (timestamp + NAMESPACE_TIMEOUT < Date.now()) {
-      var key = prefix + SEP + 'keys';
-      var keyNames = JSON.parse(localStorage.getItem(key));
-      keyNames.forEach(function(keyName) {
-        var key = prefix + keyName;
-        localStorage.deleteItem(key);
-      });
-      ['ts', 'keys'].forEach(function(internalKeyName) {
-        var key = prefix + SEP + internalKeyName;
-        localStorage.deleteItem(key);
-      });
-      _.remove(namespaces, namespace);
+      var storage = new NamespacedStorage(namespace);
+      storage.clear();
+      _.pullAt(namespaces, i);
+      i--;
       localStorage.setItem(key, JSON.stringify(namespaces));
     }
-  });
-}
+  };
+};
 clearNamespaces();
 setInterval(clearNamespaces, CLEANUP_INTERVAL);
 
@@ -101,14 +97,14 @@ _.assign(NamespacedStorage.prototype, {
   // },
 
   getItem: function(keyName) {
-    if (namespace[0] === '/') throw new Error('can\'t start keyName with /');
+    if (keyName[0] === '/') throw new Error('can\'t start keyName with /');
     var key = this.prefix + keyName;
     this.touch();
     return localStorage.getItem(key);
   },
 
   setItem: function(keyName, value) {
-    if (namespace[0] === '/') throw new Error('can\'t start keyName with /');
+    if (keyName[0] === '/') throw new Error('can\'t start keyName with /');
     var keysKey = this.internalPrefix + 'keys';
     var keys = JSON.parse(localStorage.getItem(keysKey));
     if (!_.contains(keys, keyName)) {
@@ -121,7 +117,7 @@ _.assign(NamespacedStorage.prototype, {
   },
 
   removeItem: function(keyName) {
-    if (namespace[0] === '/') throw new Error('can\'t start keyName with /');
+    if (keyName[0] === '/') throw new Error('can\'t start keyName with /');
     var keysKey = this.internalPrefix + 'keys';
     var keys = JSON.parse(localStorage.getItem(keysKey));
     if (_.contains(keys, keyName)) {
@@ -133,12 +129,18 @@ _.assign(NamespacedStorage.prototype, {
     this.touch();
   },
 
-  //clear: function(keyName) {
-  //  if (namespace[0] === '/') throw new Error('can\'t start keyName with /');
-  //  var key = this.prefix + keyName;
-  //},
-  
-  onStorage: noop,
+  clear: function() {
+    var key = this.internalPrefix + 'keys';
+    var keyNames = JSON.parse(localStorage.getItem(key));
+    keyNames.forEach(function(keyName) {
+      var key = this.prefix + keyName;
+      localStorage.removeItem(key);
+    });
+    (['ts', 'keys']).forEach(function(internalKeyName) {
+      var key = this.internalPrefix + internalKeyName;
+      localStorage.removeItem(key);
+    });
+  },
 
   touch: function() {
     var key = this.internalPrefix + 'ts';

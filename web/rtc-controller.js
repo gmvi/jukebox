@@ -2,7 +2,8 @@ var _ = require('lodash');
 
 var transport = require('./transport'),
     actions   = require('./actions'),
-    stores    = require('./stores');
+    stores    = require('./stores'),
+    MODE      = require('shared').MODE;
 
 var peer;
 var controller;
@@ -11,11 +12,17 @@ transport.create(function(err, _peer) {
   if (err) throw err;
   peer = _peer;
   actions.peer.peerEstablished(peer.id);
+  if (stores.general.state.mode === MODE.HOST) {
+    actions.peer.initHost();
+  } else if (stores.general.state.mode === MODE.CLIENT) {
+    actions.peer.initClient();
+  }
+  // TODO: what do?
 });
 
 // Host logic
 actions.peer.initHost.listen(function (password) {
-  controller = new transport.HostController(peer, password);
+  controller = new transport.HostNode(peer, password);
   controller.handleGet = function(clientId, resource, sendPost) {
     if (resource === 'profiles') {
       sendPost(stores.clients.getProfiles());
@@ -68,7 +75,7 @@ actions.peer.initHost.listen(function (password) {
 actions.peer.initClient.listen(function () {
   var hostId = stores.room.peer;
   var auth   = stores.room.auth;
-  controller = new transport.ClientController(peer, hostId);
+  controller = new transport.ClientNode(peer, hostId);
   controller.connect(auth, function(err, admitBody) {
     if (err) {
       actions.general.handleError(err);
