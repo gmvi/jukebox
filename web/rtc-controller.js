@@ -20,14 +20,14 @@ actions.general.createRoom.completed.listen(function() {
   initHost();
 });
 
-actions.general.joinRoomHost.listen(function() {
-  console.log('joinRoomHost called');
+actions.general.joinRoomAsHost.listen(function() {
+  console.log('joinRoomAsHost called');
   initHost();
 });
 
-actions.general.joinRoomClient.listen(function() {
-  console.log('joinRoomClient called');
-  initClient();
+actions.general.joinRoomAsClient.listen(function(auth) {
+  console.log('joinRoomAsClient called');
+  initClient(auth);
 });
 
 var waitForPeer = function(func, thisVal) {
@@ -54,9 +54,23 @@ var initHost = waitForPeer(function() {
     // what do I do with this?
     // do I need to add websockets?
     // first to write to localStorage wins?
-    hostConnection.on('error', function(err) {
-      console.log(err);
-    });
+    var errorHandler = function(err) {
+      console.log('errorHandler called:', err);
+    };
+    var openHandler = function() {
+      console.log('openHandler called');
+    };
+    var dataHandler = function(data) {
+      // TODO: establish protocol for secondary hosts
+    };
+    hostConnection.on('error', errorHandler);
+    hostConnection.on('open', openHandler);
+    hostConnection.on('data', dataHandler);
+    var off = function() {
+      hostConnection.off('error', errorHandler);
+      hostConnection.off('open', openHandler);
+      hostConnection.off('data', dataHandler);
+    };
   } else {
     upgradeHost();
   }
@@ -119,21 +133,16 @@ var upgradeHost = function() {
 };
 
 // Client logic
-var initClient = waitForClient(function () {
-  var hostId = stores.room.peer;
-  var auth   = stores.auth.credentials;
-  if (!auth) {
-    auth = _.pick(stores.room.state, 'password');
-  }
+var initClient = waitForClient(function (auth) {
   controller = new transport.ClientNode(peer, hostId);
   controller.connect(auth, function(err, admitBody) {
     if (err) {
       actions.general.handleError(err);
     } else if (!admitBody.accepted) {
       console.log('Error: auth rejected');
-      actions.general.joinRoom.failed(new Error('auth rejected'));
+      actions.general.joinRoomAsClient.failed(new Error('auth rejected'));
     } else {
-      actions.general.joinRoom.completed();
+      actions.general.joinRoomAsClient.completed();
       controller.handleGet = function(resource, sendPost) {
         if (resource.startsWith("files/")) {
           var split = resource.split('/');

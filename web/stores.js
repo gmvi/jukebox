@@ -153,14 +153,20 @@ var general = exports.general = Reflux.createStore({
     });
     this.updateHistory();
   },
+
+  onJoinRoomAsHostCompleted: function() {
+    this.setState({
+      mode: MODE.HOST,
+      error: null,
+    });
+  },
   
-  onJoinRoomFailed: function() {
+  onJoinRoomAsClientFailed: function() {
     console.log('pretend tooltip');
-    actions.general.handleError('joinRoom', res);
+    actions.general.handleError('joinRoomAsClient', res);
   },
 
-  onJoinRoomCompleted: function() {
-    // register with host
+  onJoinRoomAsClientCompleted: function() {
     this.setState({
       mode: MODE.CLIENT,
       error: null,
@@ -186,12 +192,12 @@ var general = exports.general = Reflux.createStore({
           }
         }
     }
-    this.state.error = strings.ERROR_UNKNOWN;
+    this.setState({error: strings.ERROR_UNKNOWN});
     this.trigger();
   },
 
   onClearError: function() {
-    this.state.error = null;
+    this.setState({error: null});
     this.trigger();
   },
 });
@@ -218,12 +224,14 @@ var auth = exports.auth = Reflux.createStore({
         this.mode = MODE.HOST;
         room.setState(_.pick(hostAuth, 'password'));
         this.credentials = _.pick(hostAuth, 'key');
-        actions.general.joinRoomHost();
+        actions.general.joinRoomAsHost();
+        this.tigger();
       } else if (_.isPlainObject(clientAuth)) {
         console.log('found client auth');
         this.mode = MODE.CLIENT;
         this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
-        actions.general.joinRoomClient();
+        actions.general.joinRoomAsClient(this.credentials);
+        this.trigger();
       } else {
         console.log('no auth found');
       }
@@ -232,12 +240,14 @@ var auth = exports.auth = Reflux.createStore({
 
   dump: function() {
     if (this.mode == MODE.HOST) {
+      // use global-namespace storage device
       localStorage.setItem('hostAuth', JSON.stringify({
         id: room.state.id,
         password: room.state.password,
         key: this.credentials.key,
       }));
     } else if (this.mode == MODE.CLIENT) {
+      // use namespaced storage device
       var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
       storage.setItem('auth', JSON.stringify(clientAuth));
     } else {
