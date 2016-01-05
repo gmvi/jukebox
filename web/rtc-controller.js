@@ -12,25 +12,64 @@ transport.create(function(err, _peer) {
   if (err) throw err;
   peer = _peer;
   // I know this is poor modularity, but I don't want to add another action
-  stores.room.setState({peer: peer.id});
+  stores.general.setState({peerId: peer.id});
   actions.peer.peerEstablished();
 });
 
-actions.general.joinRoom.listen(function() {
-  console.log('joinRoom called, mode:', stores.auth.mode);
-  if (stores.auth.mode == MODE.HOST) {
-    var auth = stores.auth.credentials;
-  } else if (stores.auth.mode == MODE.CLIENT) {
-    var auth = stores.auth.credentials;
+actions.general.createRoom.completed.listen(function() {
+  initHost();
+});
+
+actions.general.joinRoomHost.listen(function() {
+  console.log('joinRoomHost called');
+  initHost();
+});
+
+actions.general.joinRoomClient.listen(function() {
+  console.log('joinRoomClient called');
+  initClient();
+});
+
+var waitForPeer = function(func, thisVal) {
+  return function() {
+    var args = Array.prototype.slice.call(arguments);
+    var bound = _.once(function() {
+      func.apply(thisVal, args);
+    });
+    if (stores.general.state.peerId) {
+      bound();
+    } else {
+      actions.general.peerEstablished.listen(bound);
+    }
+  }
+}
+
+// Host logic
+var initHost = waitForPeer(function() {
+  var peerId = stores.room.peer;
+  var password = stores.room.password;
+  if (peerId) {
+    // try to connect to host peer
+    var hostConnection = peer.connect(peerId);
+    // what do I do with this?
+    // do I need to add websockets?
+    // first to write to localStorage wins?
+    hostConnection.on('error', function(err) {
+      console.log(err);
+    });
   } else {
-    // join with password
-    // from where?
+    upgradeHost();
   }
 });
 
-// Host logic
-actions.peer.initHost.listen(function (password) {
-  controller = new transport.HostNode(peer, password);
+var upgradeHost = function() {
+  controller = new transport.HostNode(peer);
+  controller.acceptHostSecondary = function(auth) {
+    return auth.key == stores.room.key;
+  };
+  controller.acceptNewClient = function(auth) {
+    return auth.password == stores.room.password;
+  };
   controller.handleGet = function(clientId, resource, sendPost) {
     if (resource === 'profiles') {
       sendPost(stores.clients.getProfiles());
@@ -77,20 +116,24 @@ actions.peer.initHost.listen(function (password) {
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
   // });
-});
+};
 
 // Client logic
-actions.peer.initClient.listen(function () {
+var initClient = waitForClient(function () {
   var hostId = stores.room.peer;
-  var auth   = stores.room.auth;
+  var auth   = stores.auth.credentials;
+  if (!auth) {
+    auth = _.pick(stores.room.state, 'password');
+  }
   controller = new transport.ClientNode(peer, hostId);
   controller.connect(auth, function(err, admitBody) {
     if (err) {
       actions.general.handleError(err);
     } else if (!admitBody.accepted) {
       console.log('Error: auth rejected');
-      actions.general.handleError(new Error('auth rejected'));
+      actions.general.joinRoom.failed(new Error('auth rejected'));
     } else {
+      actions.general.joinRoom.completed();
       controller.handleGet = function(resource, sendPost) {
         if (resource.startsWith("files/")) {
           var split = resource.split('/');

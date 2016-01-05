@@ -6,7 +6,8 @@ var general = exports.general = Reflux.createActions([
     'createRoom': { asyncResult: true },
     'updateRoom': { asyncResult: true },
     'closeRoom': { asyncResult: true },
-    'joinRoom': { asyncResult: true },
+    'joinRoomAsHost': { asyncResult: true },
+    'joinRoomAsClient': { asyncResult: true },
   },
 
   'handleError',
@@ -17,8 +18,6 @@ var general = exports.general = Reflux.createActions([
 
 var peer = exports.peer = Reflux.createActions([
   'peerEstablished',
-  'initHost',
-  'initClient',
 ]);
 
 var clients = exports.clients = Reflux.createActions([

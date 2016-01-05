@@ -91,86 +91,21 @@ var room = exports.room = Reflux.createStore({
     storage = new NamespacedStorage(res.body.id);
     emitter.emit('room-established');
   },
-});
 
-// authorizations are persisted differently than other data.
-// One host auth object lives in the global namespace at 'hostAuth',
-// Client auth objects live at 'ns/{id}/auth'.
-var auth = exports.auth = Reflux.createStore({
-  listenables: [actions.general],
-
-  mode: null,
-  credentials: null,
-
-  init: function() {
-    // If a room id was set then try to load authorization credentials.
-    if (room.state.id) {
-      console.log('loading auth');
-      var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
-      var clientAuth = JSON.parse(storage.getItem('auth'));
-      // check host auth first then client auth
-      if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
-        console.log('found matching host auth');
-        this.mode = MODE.HOST;
-        room.setState(_.pick(hostAuth, 'password'));
-        this.credentials = _.pick(hostAuth, 'key');
-      } else if (_.isPlainObject(clientAuth)) {
-        console.log('found client auth');
-        this.mode = MODE.CLIENT;
-        this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
-      } else {
-        console.log('no auth found');
-      }
-    }
+  onJoinRoomAsHostCompleted: function() {
   },
 
-  dump: function() {
-    if (this.mode == MODE.HOST) {
-      localStorage.setItem('hostAuth', JSON.stringify({
-        id: room.state.id,
-        password: room.state.password,
-        key: this.credentials.key,
-      }));
-    } else if (this.mode == MODE.CLIENT) {
-      var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
-      storage.setItem('auth', JSON.stringify(clientAuth));
-    } else {
-      console.log('can\'t dump empty auth');
-    }
-  },
-
-  onCreateRoomCompleted: function(res) {
-    this.mode = MODE.HOST;
-    this.credentials = _.pick(res.body, 'key');
-    this.dump();
-  },
-
-  onJoinRoomCompleted: function(response) {
-    // if the auth mode is unset, a password-auth has occurred.
-    if (this.mode == null) {
-      this.mode = MODE.CLIENT;
-      this.credentials = _.pick(response, 'clientId', 'clientSecret');
-      this.dump();
-    }
-  },
-
-  onJoinRoomFailed: function() {
-    if (this.mode == MODE.HOST) {
-      // host auth failed, clear it?
-      console.log('failed to join room with host auth');
-    } else if (this.mode == MODE.CLIENT) {
-      console.log('failed to join room with client auth');
-    } else {
-      console.log('invalid auth mode');
-    }
+  onJoinRoomAsClientCompleted: function() {
   },
 });
+
 
 var general = exports.general = Reflux.createStore({
   mixins: [stateMixin],
   listenables: [actions.general],
   state: {
     mode: null,
+    peerId: null,
     pathtoken: null,
     error: null,
   },
@@ -186,11 +121,6 @@ var general = exports.general = Reflux.createStore({
     } else if (window.vars.mode === MODE.JOIN) {
       console.log('setting mode from window.vars: JOIN');
       this.setState({mode: MODE.JOIN});
-      // if credentials have been found, then try to join the room
-      if (auth.mode) {
-        console.log('joining with found credentials');
-        actions.general.joinRoom();
-      }
     } else {
       console.log('invalid mode in window.vars');
       this.setState({mode: MODE.ERROR});
@@ -266,6 +196,80 @@ var general = exports.general = Reflux.createStore({
   },
 });
 
+
+// authorizations are persisted differently than other data.
+// One host auth object lives in the global namespace at 'hostAuth',
+// Client auth objects live at 'ns/{id}/auth'.
+var auth = exports.auth = Reflux.createStore({
+  listenables: [actions.general],
+
+  mode: null,
+  credentials: null,
+
+  init: function() {
+    // If a room id was set then try to load authorization credentials.
+    if (room.state.id) {
+      console.log('loading auth');
+      var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
+      var clientAuth = JSON.parse(storage.getItem('auth'));
+      // check host auth first then client auth
+      if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
+        console.log('found matching host auth');
+        this.mode = MODE.HOST;
+        room.setState(_.pick(hostAuth, 'password'));
+        this.credentials = _.pick(hostAuth, 'key');
+        actions.general.joinRoomHost();
+      } else if (_.isPlainObject(clientAuth)) {
+        console.log('found client auth');
+        this.mode = MODE.CLIENT;
+        this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
+        actions.general.joinRoomClient();
+      } else {
+        console.log('no auth found');
+      }
+    }
+  },
+
+  dump: function() {
+    if (this.mode == MODE.HOST) {
+      localStorage.setItem('hostAuth', JSON.stringify({
+        id: room.state.id,
+        password: room.state.password,
+        key: this.credentials.key,
+      }));
+    } else if (this.mode == MODE.CLIENT) {
+      var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
+      storage.setItem('auth', JSON.stringify(clientAuth));
+    } else {
+      console.log('can\'t dump empty auth');
+    }
+  },
+
+  onCreateRoomCompleted: function(res) {
+    this.mode = MODE.HOST;
+    this.credentials = _.pick(res.body, 'key');
+    this.dump();
+  },
+
+  onJoinRoomClientCompleted: function(response) {
+    // if the auth mode is unset, a password-auth has occurred.
+    if (this.mode == null) {
+      this.mode = MODE.CLIENT;
+      this.credentials = _.pick(response, 'clientId', 'clientSecret');
+      this.dump();
+    }
+  },
+
+  onJoinRoomHostFailed: function() {
+    // host auth failed, clear it?
+    console.log('failed to join room with host auth');
+  },
+
+  onJoinRoomClientFailed: function() {
+    // client auth failed, clear it?
+    console.log('failed to join room with client auth');
+  },
+});
 
 var player = exports.player = Reflux.createStore({
   mixins: [localStorageMixin('player')],
