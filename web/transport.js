@@ -110,11 +110,21 @@ exports.create = function create(callback) {
   peer.on('disconnected', function() {
     console.log('peer disconnected');
   });
+  peer.on('error', function(err) {
+    switch (err.type) {
+      case 'peer-unavailable':
+        var id = err.message.match(/peer (.*)\b/)[1];
+        peer.emit('peer-unavailable', id);
+        window.debug = window.debug || {};
+        window.debug.err = err;
+        return;
+      default:
+        console.log('PeerJS:', err, '\n', type);
+        return;
+    }
+  });
   peer.on('open', function(id) {
     callback(null, peer);
-  });
-  peer.on('error', function(err) {
-    console.log('PeerJS Error:', err);
   });
 }
 

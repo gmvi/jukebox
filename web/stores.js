@@ -26,7 +26,7 @@ var stateMixin = {
         this.state[key] = newState[key];
       }
     }, this);
-    this.trigger();
+    this.trigger(this.state);
   },
 };
 
@@ -183,18 +183,18 @@ var general = exports.general = Reflux.createStore({
   // this error handling is terrible
   onHandleError: function(context, res) {
     if (res.status >= 500) {
-      this.state.error = strings.ERROR_SERVER_FAILURE;
-      return this.trigger();
+      this.setState({error: strings.ERROR_SERVER_FAILURE});
+      return;
     }
     switch (context) {
       case 'createRoom':
         if (res.status == 400 && res.body.attribute == 'pathtoken') {
           switch (res.body.reason) {
             case 'duplicate':
-              this.state.error = strings.TOOLTIP_PATHTOKEN_DUPLICATE;
+              this.setState({error: strings.TOOLTIP_PATHTOKEN_DUPLICATE});
               return this.trigger();
             case 'invalid':
-              this.state.error = strings.TOOLTIP_PATHTOKEN_INVALID;
+              this.setState({error: strings.TOOLTIP_PATHTOKEN_INVALID});
               return this.trigger();
           }
         }

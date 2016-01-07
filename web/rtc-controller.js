@@ -17,12 +17,11 @@ transport.create(function(err, _peer) {
 });
 
 actions.general.createRoom.completed.listen(function() {
-  initHost();
+  initPrimaryHost();
 });
 
 actions.general.joinRoomAsHost.listen(function() {
-  console.log('joinRoomAsHost called');
-  initHost();
+  initSecondaryHost();
 });
 
 actions.general.joinRoomAsClient.listen(function(auth) {
@@ -45,38 +44,56 @@ var waitForPeer = function(func, thisVal) {
 }
 
 // Host logic
-var initHost = waitForPeer(function() {
+var initSecondaryHost = waitForPeer(function() {
   var peerId = stores.room.state.peer;
   var password = stores.room.state.password;
   if (peerId) {
     // try to connect to host peer
-    console.log('trying to connect to host peer');
+    console.log('primary host record found, trying to connect as secondary');
     var hostConnection = peer.connect(peerId);
-    // what do I do with this?
-    // do I need to add websockets?
-    // first to write to localStorage wins?
-    var errorHandler = function(err) {
-      console.log('errorHandler called:', err);
+    window.debug = window.debug || {};
+    window.debug.conn = hostConnection;
+    window.debug.peer = peer;
+    // check for connection failure
+    var unavailableHandler = function(unavailableId) {
+      if (peerId == unavailableId) {
+        console.log('primary host unavailable, registering self as host');
+        off();
+        // TODO: change this b/c it violates actions->stores dataflow
+        actions.room.update({ peer: peer.id });
+        upgradeHost();
+        actions.general.joinRoomAsHost.completed();
+      }
     };
     var openHandler = function() {
-      console.log('openHandler called');
+      console.log('connected to primary host');
+      actions.general.joinRoomAsHost.completed();
+    }
+    var disconnectHandler = function(err) {
+      console.log('error on hostConnection:', err);
+      console.log('type:', err.type);
+      actions.room.update({ peer: peer.id });
+      upgradeHost();
     };
-    var dataHandler = function(data) {
-      // TODO: establish protocol for secondary hosts
-    };
-    hostConnection.on('error', errorHandler);
-    hostConnection.on('open', openHandler);
-    hostConnection.on('data', dataHandler);
     var off = function() {
-      hostConnection.off('error', errorHandler);
+      peer.off('peer-unavailable', unavailableHandler);
       hostConnection.off('open', openHandler);
-      hostConnection.off('data', dataHandler);
+      hostConnection.off('error', disconnectHandler);
     };
+    // custom suptype of error event
+    peer.on('peer-unavailable', unavailableHandler);
+    hostConnection.on('open', openHandler);
+    hostConnection.on('error', disconnectHandler);
   } else {
-    console.log('no host peer found, setting up host');
-    upgradeHost();
+    console.log('no primary host record found, registering as host');
     actions.room.update({ peer: peer.id });
+    upgradeHost();
+    actions.general.joinRoomAsHost.completed();
   }
+});
+
+var initPrimaryHost = waitForPeer(function() {
+  upgradeHost();
 });
 
 var upgradeHost = function() {
