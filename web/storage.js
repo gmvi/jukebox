@@ -53,7 +53,7 @@ var emitter = new EventEmitter();
 var lastKeyName = null;
 var lastValue = null;
 window.addEventListener('storage', function(e) {
-  if (e.key.startswith(TOP_NAMESPACE + SEP)) {
+  if (e.key.startsWith(TOP_NAMESPACE + SEP)) {
     var startPos = TOP_NAMESPACE.length + 1;
     var room = sliceUntil(e.key, startPos, SEP);
     if (e.key[room.length + 1] === SEP) {

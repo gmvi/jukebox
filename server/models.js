@@ -29,7 +29,7 @@ var Room = exports.Room = bookshelf.Model.extend({
   validatePathtoken: function(token) {
     return new Promise(function(fulfill, reject) {
       var sanitized = utils.sanitizePathtoken(token);
-      if (token != sanitized) {
+      if (token !== sanitized) {
         reject(new Error('invalid'));
       } else if (utils.reservedTokens.indexOf(token) >= 0) {
         reject(new Error('duplicate'));

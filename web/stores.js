@@ -64,13 +64,13 @@ var localStorageMixin = function(key) {
 // Everything depends on room, so that loads first.
 var room = exports.room = Reflux.createStore({
   mixins: [stateMixin],
-  listenables: [actions.general],
+  listenables: [actions.general, actions.room],
   state: {
     id: null,
     pathtoken: null,
-    password: null,
     name: null,
     peer: null,
+    password: null,
   },
 
   init: function() {
@@ -85,10 +85,11 @@ var room = exports.room = Reflux.createStore({
     }
   },
 
-  onCreateRoomCompleted: function(res) {
-    this.setState(res.body);
+  onCreateRoomCompleted: function(status, body) {
+    // http api call
+    this.setState(body);
     // load the Storage device for the room once id is set
-    storage = new NamespacedStorage(res.body.id);
+    storage = new NamespacedStorage(body.id);
     emitter.emit('room-established');
   },
 
@@ -96,6 +97,11 @@ var room = exports.room = Reflux.createStore({
   },
 
   onJoinRoomAsClientCompleted: function() {
+  },
+
+  onUpdateCompleted: function(status, body) {
+    // http api call
+    this.setState(body);
   },
 });
 
@@ -145,10 +151,10 @@ var general = exports.general = Reflux.createStore({
     actions.general.handleError('createRoom', res);
   },
 
-  onCreateRoomCompleted: function(res) {
+  onCreateRoomCompleted: function(status, body) {
     this.setState({
       mode: MODE.HOST,
-      pathtoken: res.body.pathtoken,
+      pathtoken: body.pathtoken,
       error: null,
     });
     this.updateHistory();
@@ -159,6 +165,7 @@ var general = exports.general = Reflux.createStore({
       mode: MODE.HOST,
       error: null,
     });
+    console.log('set mode to HOST');
   },
   
   onJoinRoomAsClientFailed: function() {
@@ -225,7 +232,7 @@ var auth = exports.auth = Reflux.createStore({
         room.setState(_.pick(hostAuth, 'password'));
         this.credentials = _.pick(hostAuth, 'key');
         actions.general.joinRoomAsHost();
-        this.tigger();
+        this.trigger();
       } else if (_.isPlainObject(clientAuth)) {
         console.log('found client auth');
         this.mode = MODE.CLIENT;
@@ -255,9 +262,9 @@ var auth = exports.auth = Reflux.createStore({
     }
   },
 
-  onCreateRoomCompleted: function(res) {
+  onCreateRoomCompleted: function(status, body) {
     this.mode = MODE.HOST;
-    this.credentials = _.pick(res.body, 'key');
+    this.credentials = _.pick(body, 'key');
     this.dump();
   },
 

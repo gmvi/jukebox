@@ -37,6 +37,6 @@ var sanitizePathtoken = exports.sanitizePathtoken = function(token) {
                  .toLowerCase();
     return token;
   } else {
-    return null;
+    return token && null;
   }
 }

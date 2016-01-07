@@ -1,6 +1,8 @@
+var querystring = require('querystring');
 var request = require('superagent');
 var actions = require('./actions'),
     stores  = require('./stores');
+    MODE    = require('shared').MODE;
 
 // If you're used to the normal Flux/Reflux way of doing things, this file
 // exists because I didn't want the app's http and WebRTC interactions to be
@@ -40,4 +42,33 @@ actions.general.closeRoom.listen(function() {
   var qs = querystring.encode({ key: stores.room.state.key });
   request.delete(endpoint + '?' + qs)
     .end(triggerAsyncResults.bind(this));
+});
+
+actions.room.update.listen(function(update) {
+  // update will either be called as a host from user interaction
+  // or as a client from a pushed update from the host
+  if (stores.auth.mode == MODE.HOST) {
+    // make a PATCH to /api/rooms/:id
+    var endpoint = '/api/rooms/'+stores.room.state.id;
+    var filteredUpdate = _.pick(update, 'name', 'pathtoken', 'peer');
+    var qs = querystring.encode({ key: stores.auth.credentials.key });
+    console.log('sending room update:', update);
+    request.patch(endpoint + '?' + qs)
+      .send(filteredUpdate)
+      .end(function(err, res) {
+        if (err) {
+          console.log('room update failed: ', res.status, res.body);
+          actions.room.update.failed(err, res);
+        } else {
+          actions.room.update.completed(res.status, res.body);
+        }
+      });
+  } else {
+    // fake api call
+    actions.room.update.completed(200, update);
+  }
+});
+
+actions.room.update.completed.listen(function() {
+  console.log('room update completed');
 });

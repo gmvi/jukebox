@@ -39,17 +39,18 @@ var waitForPeer = function(func, thisVal) {
     if (stores.general.state.peerId) {
       bound();
     } else {
-      actions.general.peerEstablished.listen(bound);
+      actions.peer.peerEstablished.listen(bound);
     }
   }
 }
 
 // Host logic
 var initHost = waitForPeer(function() {
-  var peerId = stores.room.peer;
-  var password = stores.room.password;
+  var peerId = stores.room.state.peer;
+  var password = stores.room.state.password;
   if (peerId) {
     // try to connect to host peer
+    console.log('trying to connect to host peer');
     var hostConnection = peer.connect(peerId);
     // what do I do with this?
     // do I need to add websockets?
@@ -72,17 +73,19 @@ var initHost = waitForPeer(function() {
       hostConnection.off('data', dataHandler);
     };
   } else {
+    console.log('no host peer found, setting up host');
     upgradeHost();
+    actions.room.update({ peer: peer.id });
   }
 });
 
 var upgradeHost = function() {
   controller = new transport.HostNode(peer);
   controller.acceptHostSecondary = function(auth) {
-    return auth.key == stores.room.key;
+    return auth.key == stores.auth.credentials.key;
   };
   controller.acceptNewClient = function(auth) {
-    return auth.password == stores.room.password;
+    return auth.password == stores.room.state.password;
   };
   controller.handleGet = function(clientId, resource, sendPost) {
     if (resource === 'profiles') {
@@ -133,7 +136,7 @@ var upgradeHost = function() {
 };
 
 // Client logic
-var initClient = waitForClient(function (auth) {
+var initClient = waitForPeer(function (auth) {
   controller = new transport.ClientNode(peer, hostId);
   controller.connect(auth, function(err, admitBody) {
     if (err) {
