@@ -8,8 +8,8 @@
   padding: 20px 40px;
 }
 
-.app .left-pane .playlist {
-  margin-top: 40px;
+.app .left-pane .player {
+  margin-bottom: 40px;
 }
 
 @media (min-width: 960px) {

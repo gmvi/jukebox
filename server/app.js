@@ -67,10 +67,12 @@ if (commander.initdb) {
 // Set up express.
 var app = express();
 var server = http.createServer(app);
+// no entity-tags on routes
+app.set('etag', false);
 // middleware
 app.use(bodyparser.json());
 app.use(bodyparser.urlencoded({ extended:false }));
-// static folders and files
+// static folders and files express.static has etags by default
 app.use('/assets', express.static(path.resolve(__dirname, '../assets')));
 
 // Request logging.

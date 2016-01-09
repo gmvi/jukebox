@@ -79,7 +79,8 @@
   display: none;
   width: 100%;
   height: 400px;
-  padding: 10px;
+  padding: 10px 10px 0 10px;
+  /* bottom padding is accounted for in the last child of the .scroll element */
 }
 
 .controls .controls-stack.show-soundcloud .controls-soundcloud {
@@ -110,8 +111,12 @@
   background: none;
 }
 
-.search-pane > .scroll {
+.search-pane > .scroll-container {
   height: 340px;
+}
+
+.search-pane > .scroll-container > .scroll > :last-child {
+  margin-bottom: 10px;
 }
 
 .search-pane .results-description {

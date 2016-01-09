@@ -222,7 +222,6 @@ var auth = exports.auth = Reflux.createStore({
   init: function() {
     // If a room id was set then try to load authorization credentials.
     if (room.state.id) {
-      console.log('loading auth');
       var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
       var clientAuth = JSON.parse(storage.getItem('auth'));
       // check host auth first then client auth

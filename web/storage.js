@@ -1,11 +1,11 @@
 var EventEmitter = require('eventemitter3');
+var utils = require('./utils');
 
 var TOP_NAMESPACE = 'ns';
 var SEP = '/';
+var namespaceRegex = /^ns\/([^\/]+)\/(.*)$/;
 var NAMESPACE_TIMEOUT = 1000*60*60*24; // 24 hours
 var CLEANUP_INTERVAL = 1000*60*60; // 1 hour
-
-var noop = function () {};
 
 var defineGetter = function(obj, attr, func) {
   if (!_.isFunction(func)) {
@@ -15,6 +15,7 @@ var defineGetter = function(obj, attr, func) {
   Object.defineProperty( obj, attr, { get: func } );
 }
 
+// namespace can't contain the separator character
 var addNamespace = function(namespace) {
   var key = TOP_NAMESPACE + SEP + SEP + 'namespaces';
   // TODO: optimize this with a :-concatenated string instead of JSON.
@@ -55,15 +56,17 @@ var lastValue = null;
 window.addEventListener('storage', function(e) {
   if (e.key.startsWith(TOP_NAMESPACE + SEP)) {
     var startPos = TOP_NAMESPACE.length + 1;
-    var room = sliceUntil(e.key, startPos, SEP);
-    if (e.key[room.length + 1] === SEP) {
+    var match = e.key.match(namespaceRegex);
+    if (!match) return;
+    var namespace = match[0];
+    var keyName = match[1];
+    if (keyName[0] === SEP) {
       // internal key, ignore
       return;
     }
-    var keyName = e.key.slice(room.length + 1);
     e.keyName = keyName;
     e.namespace = namespace;
-    emitter.emit('storage/'+namespace, e);
+    emitter.emit(namespace, e);
   }
 });
 
@@ -78,10 +81,10 @@ var NamespacedStorage = module.exports = function(namespace) {
   var emit = function(e) {
     this.emit('storage', e);
   };
-  emitter.on('storage/'+namespace, emit, this);
+  emitter.on(namespace, emit, this);
 
   this.destroy = function() {
-    emitter.removeListener('storage/'+namespace, emit);
+    emitter.off(namespace, emit);
   };
 
   // TODO: make this compliant with the Web Storage standard

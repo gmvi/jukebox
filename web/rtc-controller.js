@@ -5,6 +5,8 @@ var transport = require('./transport'),
     stores    = require('./stores'),
     MODE      = require('shared').MODE;
 
+window.debug = window.debug || {};
+
 var peer;
 var controller;
 
@@ -46,7 +48,6 @@ var waitForPeer = function(func, thisVal) {
 // Host logic
 var initSecondaryHost = waitForPeer(function() {
   var peerId = stores.room.state.peer;
-  var password = stores.room.state.password;
   if (peerId) {
     // try to connect to host peer
     console.log('primary host record found, trying to connect as secondary');
@@ -67,8 +68,30 @@ var initSecondaryHost = waitForPeer(function() {
     };
     var openHandler = function() {
       console.log('connected to primary host');
-      actions.general.joinRoomAsHost.completed();
     }
+    var dataHandler = function(data) {
+      if (data.resource == 'auth') {
+        if (data.method == 'get') {
+          hostConnection.send({
+            method: 'post',
+            resource: 'auth',
+            body: stores.auth.credentials,
+          });
+        } else if (data.method == 'admit') {
+          if (data.body.accepted) {
+            console.log('accepted by host');
+            hostConnection.off('data', dataHandler);
+            actions.general.joinRoomAsHost.completed();
+          } else {
+            // TODO: handle failed host auth
+          }
+        } else {
+          // invalid auth method
+          console.log('invalid auth method from host');
+        }
+      }
+      // else ignore it
+    };
     var disconnectHandler = function(err) {
       console.log('error on hostConnection:', err);
       console.log('type:', err.type);
@@ -79,9 +102,11 @@ var initSecondaryHost = waitForPeer(function() {
       peer.off('peer-unavailable', unavailableHandler);
       hostConnection.off('open', openHandler);
       hostConnection.off('error', disconnectHandler);
+      hostConnection.off('data', dataHandler);
     };
     // custom suptype of error event
     peer.on('peer-unavailable', unavailableHandler);
+    hostConnection.on('data', dataHandler);
     hostConnection.on('open', openHandler);
     hostConnection.on('error', disconnectHandler);
   } else {
@@ -98,6 +123,7 @@ var initPrimaryHost = waitForPeer(function() {
 
 var upgradeHost = function() {
   controller = new transport.HostNode(peer);
+  window.debug.controller = controller;
   controller.acceptHostSecondary = function(auth) {
     return auth.key == stores.auth.credentials.key;
   };
@@ -155,6 +181,7 @@ var upgradeHost = function() {
 // Client logic
 var initClient = waitForPeer(function (auth) {
   controller = new transport.ClientNode(peer, hostId);
+  window.debug.controller = controller;
   controller.connect(auth, function(err, admitBody) {
     if (err) {
       actions.general.handleError(err);
