@@ -7,6 +7,7 @@ var noop = function() {};
 
 var invoke = function(callback) {
   if (!_.isFunction(callback)) {
+    throw new Error();
     console.log('Warning: expected callback function, got '+callback);
     return;
   }
@@ -189,6 +190,9 @@ exports.HostNode = function HostNode(peer) {
         });
       };
       var auth = data.body;
+      if (!auth) {
+        sendAdmit({ accepted: false });
+      }
       // Accept three auth modes, in order: host, established client, new client
       if (this.acceptHostSecondary(auth)) {
         console.log('accepting host secondary');
@@ -294,9 +298,8 @@ _.assign(exports.HostNode.prototype, {
   },
 });
 
-exports.ClientNode = function ClientNode(peer, hostId, auth) {
+exports.ClientNode = function ClientNode(peer) {
   this.peer = peer;
-  this.hostId = hostId;
   this.connection = null;
   this.threads = {};
   this.authenticated = false;
@@ -319,9 +322,10 @@ _.assign(exports.ClientNode.prototype, {
       callback(null, body);
     };
   },
-  connect: function(auth, callback) {
+  connect: function(hostId, auth, callback) {
+    if (callback === undefined) throw new Error();
     callback = once(callback);
-    this.connection = this.peer.connect(this.hostId, {
+    this.connection = this.peer.connect(hostId, {
       reliable: true
     });
     // if we get an error before the auth succeeds, pass it to the callback
@@ -330,7 +334,6 @@ _.assign(exports.ClientNode.prototype, {
     });
     // attach the main data handler
     this.connection.on('data', (function(data) {
-      console.log('got data:', JSON.stringify(data));
       if (data.resource === 'auth') {
         // automatically respond to auth requests
         if (data.method === 'get') {
@@ -338,7 +341,7 @@ _.assign(exports.ClientNode.prototype, {
             token: data.token,
             resource: 'auth',
             method: 'post',
-            body: data.auth,
+            body: auth,
           });
         } else if (data.method === 'admit') {
           invoke(callback, null, data.body);
@@ -348,9 +351,9 @@ _.assign(exports.ClientNode.prototype, {
         }
       } else if (data.token in this.threads) {
         // this data is part of an established thread
-        var callback = this.threads[data.token];
+        var next = this.threads[data.token];
         delete this.threads[data.token];
-        invoke(callback, data.body);
+        invoke(next, data.body);
       } else if (data.method == 'get') {
         // new thread starting with a get
         var token = data.token;

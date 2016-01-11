@@ -21,6 +21,10 @@ var stateMixin = {
     return this.state;
   },
   setState: function(newState) {
+    if (!_.isPlainObject(newState)) {
+      console.warn('setState takes a plain object');
+      return;
+    }
     Object.keys(this.state).forEach(function(key) {
       if (!_.isUndefined(newState[key])) {
         this.state[key] = newState[key];
@@ -85,7 +89,12 @@ var room = exports.room = Reflux.createStore({
     }
   },
 
+  onCreateRoom: function(roomState) {
+    this.setState({ password: roomState.password });
+  },
+
   onCreateRoomCompleted: function(status, body) {
+    console.log(body);
     // http api call
     this.setState(body);
     // load the Storage device for the room once id is set
@@ -267,21 +276,22 @@ var auth = exports.auth = Reflux.createStore({
     this.dump();
   },
 
-  onJoinRoomClientCompleted: function(response) {
+  onJoinRoomAsClientCompleted: function(response) {
     // if the auth mode is unset, a password-auth has occurred.
     if (this.mode == null) {
+      console.log('recording new credentials');
       this.mode = MODE.CLIENT;
       this.credentials = _.pick(response, 'clientId', 'clientSecret');
       this.dump();
     }
   },
 
-  onJoinRoomHostFailed: function() {
+  onJoinRoomAsHostFailed: function() {
     // host auth failed, clear it?
     console.log('failed to join room with host auth');
   },
 
-  onJoinRoomClientFailed: function() {
+  onJoinRoomAsClientFailed: function() {
     // client auth failed, clear it?
     console.log('failed to join room with client auth');
   },

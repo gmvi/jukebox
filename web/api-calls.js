@@ -15,14 +15,14 @@ var triggerAsyncResults = function(err, res) {
     console.log('testing for real errors:', err);
     this.failed(err, res);
   } else {
-    this.completed(res);
+    this.completed(res.status, res.body);
   }
 };
 
 actions.general.createRoom.listen(function(room) {
   // make a POST to /api/rooms with the contents of stores.room
   request.post('/api/rooms')
-    .send(_.pick(room, 'name', 'pathtoken', 'password'))
+    .send(_.pick(room, 'name', 'pathtoken'))
     .end(triggerAsyncResults.bind(this));
 });
 

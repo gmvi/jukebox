@@ -180,16 +180,17 @@ var upgradeHost = function() {
 
 // Client logic
 var initClient = waitForPeer(function (auth) {
-  controller = new transport.ClientNode(peer, hostId);
+  controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
-  controller.connect(auth, function(err, admitBody) {
+  var hostId = stores.room.state.peer;
+  controller.connect(hostId, auth, function(err, admitBody) {
     if (err) {
       actions.general.handleError(err);
     } else if (!admitBody.accepted) {
       console.log('Error: auth rejected');
       actions.general.joinRoomAsClient.failed(new Error('auth rejected'));
     } else {
-      actions.general.joinRoomAsClient.completed();
+      actions.general.joinRoomAsClient.completed(admitBody);
       controller.handleGet = function(resource, sendPost) {
         if (resource.startsWith("files/")) {
           var split = resource.split('/');
