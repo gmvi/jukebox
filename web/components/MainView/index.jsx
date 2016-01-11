@@ -19,9 +19,11 @@ module.exports = React.createClass({
       <div className="app">
         <div className="left-pane">
           <Player />
+          Playlist
           <Playlist list={stores.playlist.state} />
         </div>
         <div className="right-pane">
+          Queue
           <Playlist list={stores.queue.state} />
           <Controls />
         </div>

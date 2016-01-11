@@ -21,12 +21,16 @@ var stateMixin = {
     return this.state;
   },
   setState: function(newState) {
+    if (!_.isPlainObject(newState)) {
+      console.warn('setState takes a plain object');
+      return;
+    }
     Object.keys(this.state).forEach(function(key) {
       if (!_.isUndefined(newState[key])) {
         this.state[key] = newState[key];
       }
     }, this);
-    this.trigger();
+    this.trigger(this.state);
   },
 };
 
@@ -60,17 +64,17 @@ var localStorageMixin = function(key) {
   };
 };
 
-// The stores. Everything depends on room, so that loads first.
-
+// The stores.
+// Everything depends on room, so that loads first.
 var room = exports.room = Reflux.createStore({
   mixins: [stateMixin],
-  listenables: [actions.general],
+  listenables: [actions.general, actions.room],
   state: {
     id: null,
     pathtoken: null,
-    password: null,
     name: null,
     peer: null,
+    password: null,
   },
 
   init: function() {
@@ -79,100 +83,59 @@ var room = exports.room = Reflux.createStore({
     }
     if (this.state.id) {
       console.log('loaded room.id:', this.state.id);
+      // load the Storage device for the room once id is set
       storage = new NamespacedStorage(this.state.id);
       emitter.emit('room-established');
     }
   },
 
-  onCreateRoomCompleted: function(res) {
-    this.setState(res.body);
-    storage = new NamespacedStorage(res.body.id);
+  onCreateRoom: function(roomState) {
+    this.setState({ password: roomState.password });
+  },
+
+  onCreateRoomCompleted: function(status, body) {
+    console.log(body);
+    // http api call
+    this.setState(body);
+    // load the Storage device for the room once id is set
+    storage = new NamespacedStorage(body.id);
     emitter.emit('room-established');
   },
-});
 
-// authorizations are persisted differently than other data.
-// One host auth object lives in the global namespace at 'hostAuth',
-// Client auth objects live at 'ns/{id}/auth'.
-var auth = exports.auth = Reflux.createStore({
-  listenables: [actions.general],
-
-  mode: null,
-  credentials: null,
-
-  init: function() {
-    if (room.state.id) {
-      console.log('loading auth');
-      var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
-      var clientAuth = JSON.parse(storage.getItem('auth'));
-      // check host auth first then client auth
-      if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
-        console.log('found matching host auth');
-        this.mode = MODE.HOST;
-        this.credentials = _.pick(hostAuth, 'key');
-      } else if (_.isPlainObject(clientAuth)) {
-        console.log('found client auth');
-        this.mode = MODE.CLIENT;
-        this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
-      } else {
-        console.log('no auth found');
-      }
-    } else {
-      emitter.on('room-established', this.init, this);
-    }
+  onJoinRoomAsHostCompleted: function() {
   },
 
-  dump: function() {
-    if (this.mode == MODE.HOST) {
-      localStorage.setItem('hostAuth', JSON.stringify({
-        id: room.state.id,
-        key: this.credentials.key,
-      }));
-    } else if (this.mode == MODE.CLIENT) {
-      var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
-      storage.setItem('auth', JSON.stringify(clientAuth));
-    } else {
-      console.log('can\'t dump empty auth');
-    }
+  onJoinRoomAsClientCompleted: function() {
   },
 
-  onCreateRoomCompleted: function(res) {
-    this.mode = MODE.HOST;
-    this.credentials = _.pick(res.body, 'key');
-    this.dump();
-  },
-
-  onJoinRoomCompleted: function(response) {
-    this.mode = MODE.CLIENT;
-    this.credentials = _.pick(response, 'clientId', 'clientSecret');
-    this.dump();
-  },
-
-  onJoinRoomFailed: function() {
-    if (this.mode == MODE.HOST) {
-      // host auth failed, clear it?
-      console.log('failed to join room with host auth');
-    } else if (this.mode == MODE.CLIENT) {
-      console.log('failed to join room with client auth');
-    } else {
-      console.log('invalid auth mode');
-    }
+  onUpdateCompleted: function(status, body) {
+    // http api call
+    this.setState(body);
   },
 });
+
 
 var general = exports.general = Reflux.createStore({
   mixins: [stateMixin],
   listenables: [actions.general],
   state: {
     mode: null,
+    peerId: null,
     pathtoken: null,
     error: null,
   },
 
   init: function() {
-    if (window.vars && window.vars.mode && MODE.has(window.vars.mode)) {
-      console.log('setting mode from window.vars');
-      this.setState({mode: window.vars.mode});
+    if (!window.vars) {
+      console.error('no global vars set');
+      return;
+    }
+    if (window.vars.mode === MODE.CREATE) {
+      console.log('setting mode from window.vars: CREATE');
+      this.setState({mode: MODE.CREATE});
+    } else if (window.vars.mode === MODE.JOIN) {
+      console.log('setting mode from window.vars: JOIN');
+      this.setState({mode: MODE.JOIN});
     } else {
       console.log('invalid mode in window.vars');
       this.setState({mode: MODE.ERROR});
@@ -181,7 +144,6 @@ var general = exports.general = Reflux.createStore({
     window.onpopstate = function(evt) {
       this.setState(evt.state);
     };
-    console.log('initial mode:', this.state.mode);
   },
 
   updateHistory: function() {
@@ -198,59 +160,142 @@ var general = exports.general = Reflux.createStore({
     actions.general.handleError('createRoom', res);
   },
 
-  onCreateRoomCompleted: function(res) {
-    actions.general.clearError();
+  onCreateRoomCompleted: function(status, body) {
     this.setState({
       mode: MODE.HOST,
-      pathtoken: res.body.pathtoken,
+      pathtoken: body.pathtoken,
+      error: null,
     });
     this.updateHistory();
-    actions.peer.initHost();
-  },
-  
-  onJoinRoomFailed: function() {
-    console.log('pretend tooltip');
-    actions.general.handleError('joinRoom', res);
   },
 
-  onJoinRoomCompleted: function() {
-    // register with host
+  onJoinRoomAsHostCompleted: function() {
+    this.setState({
+      mode: MODE.HOST,
+      error: null,
+    });
+    console.log('set mode to HOST');
+  },
+  
+  onJoinRoomAsClientFailed: function() {
+    console.log('pretend tooltip');
+    actions.general.handleError('joinRoomAsClient', res);
+  },
+
+  onJoinRoomAsClientCompleted: function() {
     this.setState({
       mode: MODE.CLIENT,
       error: null,
     });
-    actions.peer.initClient();
   },
 
   // this error handling is terrible
   onHandleError: function(context, res) {
     if (res.status >= 500) {
-      this.state.error = strings.ERROR_SERVER_FAILURE;
-      return this.trigger();
+      this.setState({error: strings.ERROR_SERVER_FAILURE});
+      return;
     }
     switch (context) {
       case 'createRoom':
         if (res.status == 400 && res.body.attribute == 'pathtoken') {
           switch (res.body.reason) {
             case 'duplicate':
-              this.state.error = strings.TOOLTIP_PATHTOKEN_DUPLICATE;
+              this.setState({error: strings.TOOLTIP_PATHTOKEN_DUPLICATE});
               return this.trigger();
             case 'invalid':
-              this.state.error = strings.TOOLTIP_PATHTOKEN_INVALID;
+              this.setState({error: strings.TOOLTIP_PATHTOKEN_INVALID});
               return this.trigger();
           }
         }
     }
-    this.state.error = strings.ERROR_UNKNOWN;
+    this.setState({error: strings.ERROR_UNKNOWN});
     this.trigger();
   },
 
   onClearError: function() {
-    this.state.error = null;
+    this.setState({error: null});
     this.trigger();
   },
 });
 
+
+// authorizations are persisted differently than other data.
+// One host auth object lives in the global namespace at 'hostAuth',
+// Client auth objects live at 'ns/{id}/auth'.
+var auth = exports.auth = Reflux.createStore({
+  listenables: [actions.general],
+
+  mode: null,
+  credentials: null,
+
+  init: function() {
+    // If a room id was set then try to load authorization credentials.
+    if (room.state.id) {
+      var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
+      var clientAuth = JSON.parse(storage.getItem('auth'));
+      // check host auth first then client auth
+      if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
+        console.log('found matching host auth');
+        this.mode = MODE.HOST;
+        room.setState(_.pick(hostAuth, 'password'));
+        this.credentials = _.pick(hostAuth, 'key');
+        actions.general.joinRoomAsHost();
+        this.trigger();
+      } else if (_.isPlainObject(clientAuth)) {
+        console.log('found client auth');
+        this.mode = MODE.CLIENT;
+        this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
+        actions.general.joinRoomAsClient(this.credentials);
+        this.trigger();
+      } else {
+        console.log('no auth found');
+      }
+    }
+  },
+
+  dump: function() {
+    if (this.mode == MODE.HOST) {
+      // use global-namespace storage device
+      localStorage.setItem('hostAuth', JSON.stringify({
+        id: room.state.id,
+        password: room.state.password,
+        key: this.credentials.key,
+      }));
+    } else if (this.mode == MODE.CLIENT) {
+      // use namespaced storage device
+      var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
+      storage.setItem('auth', JSON.stringify(clientAuth));
+    } else {
+      console.log('can\'t dump empty auth');
+    }
+  },
+
+  onCreateRoomCompleted: function(status, body) {
+    this.mode = MODE.HOST;
+    this.credentials = _.pick(body, 'key');
+    this.dump();
+  },
+
+  onJoinRoomAsClientCompleted: function(response) {
+    // if the auth mode is unset, a password-auth has occurred.
+    if (this.mode == null) {
+      console.log('recording new credentials');
+      this.mode = MODE.CLIENT;
+      this.credentials = _.pick(response, 'clientId', 'clientSecret');
+      this.dump();
+    }
+  },
+
+  onJoinRoomAsHostFailed: function() {
+    // host auth failed, clear it?
+    console.log('failed to join room with host auth');
+  },
+
+  onJoinRoomAsClientFailed: function() {
+    // client auth failed, clear it?
+    console.log('failed to join room with client auth');
+  },
+});
 
 var player = exports.player = Reflux.createStore({
   mixins: [localStorageMixin('player')],

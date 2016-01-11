@@ -1,13 +1,26 @@
-var Reflux = require('reflux');
+var _      = require('lodash'),
+    Reflux = require('reflux');
 var request = require('superagent');
 
+var asyncActions = function(actionNames) {
+  if (!_.isArray(actionNames)) {
+    throw new TypeError('asyncActions takes an Array');
+  }
+  var o = {};
+  _.forEach(actionNames, function(name) {
+    o[name] = { asyncResult: true };
+  });
+  return o;
+}
+
 var general = exports.general = Reflux.createActions([
-  {
-    'createRoom': { asyncResult: true },
-    'updateRoom': { asyncResult: true },
-    'closeRoom': { asyncResult: true },
-    'joinRoom': { asyncResult: true },
-  },
+  asyncActions([
+    'createRoom',
+    'updateRoom',
+    'closeRoom',
+    'joinRoomAsHost',
+    'joinRoomAsClient',
+  ]),
 
   'handleError',
   'clearError',
@@ -17,8 +30,12 @@ var general = exports.general = Reflux.createActions([
 
 var peer = exports.peer = Reflux.createActions([
   'peerEstablished',
-  'initHost',
-  'initClient',
+]);
+
+var room = exports.room = Reflux.createActions([
+  asyncActions([
+    'update',
+  ]),
 ]);
 
 var clients = exports.clients = Reflux.createActions([

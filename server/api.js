@@ -16,9 +16,16 @@ router.get('/rooms', function(req, res) {
 
 var knexErrorUniqueSplit = 'SQLITE_CONSTRAINT: UNIQUE constraint failed: ';
 
+var base64url = function(stringable) {
+  return stringable.toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+}
+
 router.post('/rooms', function(req, res, next) {
   Room.validatePathtoken(req.body.pathtoken).then(function() {
-    var key = crypto.randomBytes(36).toString('base64');
+    var key = base64url(crypto.randomBytes(36));
     var room = new Room({
       name: req.body.name,
       key: key,
@@ -51,6 +58,7 @@ router.post('/rooms', function(req, res, next) {
   });
 });
 
+// should implement etags for rooms
 router.get('/rooms/:id', function(req, res) {
   Room.where('id', req.params.id)
       .fetch()
@@ -72,15 +80,17 @@ var f = function(req, res, next) {
           res.sendStatus(404);
           return;
         }
-        if (req.body.key != room.get('key')) {
-          res.sendStatus(403).json({
+        console.log(req.query.key);
+        console.log(req.body.key);
+        var key = req.query.key || req.body.key;
+        if (key != room.get('key')) {
+          res.status(403).json({
             attribute: 'key'
           });
           return;
         }
-        Room.sanitizePathtoken(req.body.pathtoken).then(function(pathtoken) {
-          var update = _.pick(req.body, ['name', 'peer']);
-          if (pathtoken != null) update.pathtoken = pathtoken;
+        var update = _.pick(req.body, ['name', 'pathtoken', 'peer']);
+        Room.validatePathtoken(update.pathtoken).then(function() {
           room.save(update).then(function(room) {
             res.json(room.serializePrivate());
           }, function(err) {
@@ -128,91 +138,86 @@ router.delete('/rooms/:id', function(req, res, next) {
       });
 });
 
-var streamingEdit = function(url, out, path, transform) {
-  out.write('[');
+var streamingEdit = function(url, res, path, transform) {
+  res.setHeader('Content-Type', 'application/json');
+  res.write('[');
   var first = true;
   oboe(url).node(path, function(track) {
     transform(track, function(transformed) {
-      if (!first) out.write(',');
+      if (!first) res.write(',');
       else first = false;
-      out.write(JSON.stringify(transformed));
+      res.write(JSON.stringify(transformed));
     });
   }).done(function() {
-    out.write(']');
-    out.end();
+    res.write(']');
+    res.end();
   });
 }
 
-router.get('/search/soundcloud', function(req, res, next) {
+// would etags be a benefit for searches?
+var searchMiddleware = function(req, res, next) {
   if (!req.query.q) {
     res.send([]);
   } else {
-    res.setHeader('Content-Type', 'application/json');
-    var qs = querystring.encode({
-      client_id: global.config.searchTokens.soundcloud,
-      q: req.query.q,
-      limit: 20,
-    });
-    var url = 'http://api.soundcloud.com/tracks/?' + qs;
-    streamingEdit(url, res, '*', function(track, write) {
-      if (track.streamable) {
-        var art = track.artwork_url
-                ? track.artwork_url.replace(/large/, 'small')
-                : null;
-        write({
-          id: track.id,
-          track: track.title,
-          artist: track.user.username,
-          art: art,
-        });
-      }
-    });
+    next();
   }
+};
+
+router.get('/search/soundcloud', searchMiddleware, function(req, res, next) {
+  var qs = querystring.encode({
+    client_id: global.config.searchTokens.soundcloud,
+    q: req.query.q,
+    limit: 20,
+  });
+  var url = 'http://api.soundcloud.com/tracks/?' + qs;
+  streamingEdit(url, res, '*', function(track, write) {
+    if (track.streamable) {
+      var art = track.artwork_url
+              ? track.artwork_url.replace(/large/, 'small')
+              : null;
+      write({
+        id: track.id,
+        track: track.title,
+        artist: track.user.username,
+        art: art,
+      });
+    }
+  });
 });
 
 router.get('/search/youtube', function(req, res, next) {
-  if (!req.query.q) {
-    res.send([]);
-  } else {
-    res.setHeader('Content-Type', 'application/json');
-    var qs = querystring.encode({
-      key: global.config.searchTokens.youtube,
-      type: 'video',
-      part: 'snippet',
-      q: req.query.q,
-      maxResults: 20,
+  var qs = querystring.encode({
+    key: global.config.searchTokens.youtube,
+    type: 'video',
+    part: 'snippet',
+    q: req.query.q,
+    maxResults: 20,
+  });
+  var url = 'https://www.googleapis.com/youtube/v3/search?' + qs;
+  streamingEdit(url, res, 'items.*', function(result, write) {
+    write({
+      id: result.id.videoId,
+      track: result.snippet.title,
+      art: result.snippet.thumbnails.default.url,
     });
-    var url = 'https://www.googleapis.com/youtube/v3/search?' + qs;
-    streamingEdit(url, res, 'items.*', function(result, write) {
-      write({
-        id: result.id.videoId,
-        track: result.snippet.title,
-        art: result.snippet.thumbnails.default.url,
-      });
-    });
-  }
+  });
 });
 
 router.get('/search/spotify', function(req, res, next) {
-  if (!req.query.q) {
-    res.send([]);
-  } else {
-    res.setHeader('Content-Type', 'application/json');
-    var qs = querystring.encode({
-      q: req.query.q,
-      type: 'track',
-      market: 'US',
-      limit: 20,
+  var qs = querystring.encode({
+    q: req.query.q,
+    type: 'track',
+    market: 'US',
+    limit: 20,
+  });
+  var url = 'https://api.spotify.com/v1/search?' + qs;
+  streamingEdit(url, res, 'tracks.items.*', function(result, write) {
+    write({
+      id: result.id,
+      track: result.name,
+      album: result.album.name,
+      artist: result.artists[0].name,
+      art: result.album.images[result.album.images.length-1].url,
     });
-    var url = 'https://api.spotify.com/v1/search?' + qs;
-    streamingEdit(url, res, 'tracks.items.*', function(result, write) {
-      write({
-        id: result.id,
-        track: result.name,
-        album: result.album.name,
-        artist: result.artists[0].name,
-        art: result.album.images[result.album.images.length-1].url,
-      });
-    });
-  }
+  });
 });

@@ -7,6 +7,7 @@ var noop = function() {};
 
 var invoke = function(callback) {
   if (!_.isFunction(callback)) {
+    throw new Error();
     console.log('Warning: expected callback function, got '+callback);
     return;
   }
@@ -38,10 +39,10 @@ var generateToken = function(notIn) {
 var ClientRecord = function ClientRecord(id, secret, conn) {
   this.id = id;
   this.secret = secret;
-  this.connections = {};
-  this.connections[conn.peer] = conn;
+  this.connections = { [conn.peer]: conn };
   this.connectionCount = 1;
   this.main = conn.peer;
+  this.threads = {};
 }
 _.assign(ClientRecord.prototype, {
   // adds a peerjs DataConnection to a client record, optionally making it the
@@ -110,11 +111,21 @@ exports.create = function create(callback) {
   peer.on('disconnected', function() {
     console.log('peer disconnected');
   });
+  peer.on('error', function(err) {
+    switch (err.type) {
+      case 'peer-unavailable':
+        var id = err.message.match(/peer (.*)\b/)[1];
+        peer.emit('peer-unavailable', id);
+        window.debug = window.debug || {};
+        window.debug.err = err;
+        return;
+      default:
+        console.log('PeerJS:', err, '\n', type);
+        return;
+    }
+  });
   peer.on('open', function(id) {
     callback(null, peer);
-  });
-  peer.on('error', function(err) {
-    console.log('PeerJS Error:', err);
   });
 }
 
@@ -122,47 +133,10 @@ exports.HostNode = function HostNode(peer) {
   this.peer = peer;
   this.hostSecondaries = {};
   this.clients = {};
-  this.threads = {};
-  
-  // private function makeAuthHandler(conn)
-  // returns a handler for a post to the 'auth' resource
-  // conn is a PeerJS DataConnection
-  var makeAuthHandler = (function (conn) {
-    return (function (auth, respond) {
-      // Accept two auth modes: password and token
-      // If password, verify password and generate a new client profile
-      // If token, compare to established client profiles
-      if (auth.clientId) {
-        var client = this.clients[auth.clientId];
-        if (client !== undefined && client.secret === auth.clientSecret) {
-          // record connection
-          client.add(conn, auth.main);
-          hookUpClient(client.id, conn);
-          respond({ accepted: true });
-        } else {
-          respond({ accepted: false });
-        }
-      } else if (this.acceptHostSecondary(auth)) {
-
-        this.hostSecondaries[conn.peer] = conn;
-      } else if (this.acceptNewClient(auth)) {
-        // register new client
-        var clientId = generateToken(this.clients);
-        var clientSecret = generateToken();
-        this.clients[clientId] = new ClientRecord(clientId, clientSecret, conn);
-        hookUpClient(conn);
-        respond({
-          accepted: true,
-          clientId: clientId,
-          clientSecret: clientSecret,
-        });
-      } else {
-        respond({ accepted: false });
-      }
-    }).bind(this);
-  }).bind(this);
 
   // private method
+  // clientId is a string, and must be a key of this.clients
+  // conn is a PeerJS DataConnection
   var hookUpClient = (function (clientId, conn) {
     conn.on('data', (function(data) {
       if (data.token in this.clients[clientId].threads) {
@@ -202,11 +176,67 @@ exports.HostNode = function HostNode(peer) {
     }).bind(this));
   }).bind(this);
 
-  this.peer.on('connection', function(conn) {
-    var id = conn.peer;
-    connections[id] = conn;
-    this.get(conn, 'auth', makeAuthHandler(conn));
-  });
+  this.peer.on('connection', (function(conn) {
+    console.log('new connection, requesting auth');
+    var dataHandler = (function(data) {
+      if (data.resource !== 'auth') {
+        return;
+      }
+      var sendAdmit = function(body) {
+        conn.send({
+          resource: 'auth',
+          method: 'admit',
+          body: body
+        });
+      };
+      var auth = data.body;
+      if (!auth) {
+        sendAdmit({ accepted: false });
+      }
+      // Accept three auth modes, in order: host, established client, new client
+      if (this.acceptHostSecondary(auth)) {
+        console.log('accepting host secondary');
+        this.hostSecondaries[conn.peer] = conn;
+        // stop listening to the conn
+        conn.off('data', dataHandler);
+        sendAdmit({ accepted: true });
+      } else if (auth.clientId) {
+        var client = this.clients[auth.clientId];
+        if (client !== undefined && client.secret === auth.clientSecret) {
+          console.log('accepting new connection from client', client.id);
+          // record connection
+          client.add(conn, auth.main);
+          conn.off('data', dataHandler);
+          hookUpClient(client.id, conn);
+          sendAdmit({ accepted: true });
+        } else {
+          sendAdmit({ accepted: false });
+        }
+      } else if (this.acceptNewClient(auth)) {
+        console.log('accepting new client');
+        // register new client
+        var clientId = generateToken(this.clients);
+        var clientSecret = generateToken();
+        this.clients[clientId] = new ClientRecord(clientId, clientSecret, conn);
+        conn.off('data', dataHandler);
+        hookUpClient(clientId, conn);
+        sendAdmit({
+          accepted: true,
+          clientId: clientId,
+          clientSecret: clientSecret,
+        });
+      } else {
+        sendAdmit({ accepted: false });
+      }
+    }).bind(this);
+    conn.on('data', dataHandler);
+    conn.once('open', function() {
+      conn.send({
+        resource: 'auth',
+        method: 'get',
+      });
+    });
+  }).bind(this));
 }
 _.assign(exports.HostNode.prototype, {
   // records a callback for the next event in a thread
@@ -268,9 +298,8 @@ _.assign(exports.HostNode.prototype, {
   },
 });
 
-exports.ClientNode = function ClientNode(peer, hostId, auth) {
+exports.ClientNode = function ClientNode(peer) {
   this.peer = peer;
-  this.hostId = hostId;
   this.connection = null;
   this.threads = {};
   this.authenticated = false;
@@ -293,9 +322,10 @@ _.assign(exports.ClientNode.prototype, {
       callback(null, body);
     };
   },
-  connect: function(auth, callback) {
+  connect: function(hostId, auth, callback) {
+    if (callback === undefined) throw new Error();
     callback = once(callback);
-    this.connection = this.peer.connect(this.hostId, {
+    this.connection = this.peer.connect(hostId, {
       reliable: true
     });
     // if we get an error before the auth succeeds, pass it to the callback
@@ -305,25 +335,25 @@ _.assign(exports.ClientNode.prototype, {
     // attach the main data handler
     this.connection.on('data', (function(data) {
       if (data.resource === 'auth') {
-        // divert all auth requests
+        // automatically respond to auth requests
         if (data.method === 'get') {
           this.connection.send({
             token: data.token,
             resource: 'auth',
             method: 'post',
-            body: data.auth,
+            body: auth,
           });
         } else if (data.method === 'admit') {
           invoke(callback, null, data.body);
         } else {
           console.log('Warning: host responded with invalid method on auth' + 
-                      'response');
+                      'resource');
         }
       } else if (data.token in this.threads) {
         // this data is part of an established thread
-        var callback = this.threads[data.token];
+        var next = this.threads[data.token];
         delete this.threads[data.token];
-        invoke(callback, data.body);
+        invoke(next, data.body);
       } else if (data.method == 'get') {
         // new thread starting with a get
         var token = data.token;

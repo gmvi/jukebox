@@ -24,14 +24,9 @@ module.exports = React.createClass({
     };
   },
 
-  componentWillMount: function() {
-    // for now, until I turn on passwords
-    actions.general.joinRoom();
-  },
-
   handleJoinRoom: function(evt) {
     evt.preventDefault();
-    actions.general.joinRoom({
+    actions.general.joinRoomAsClient({
       password: this.state.password,
     });
   },
