@@ -180,10 +180,12 @@ var upgradeHost = function() {
 
 // Client logic
 var initClient = waitForPeer(function (auth) {
+  console.log('initializing client node');
   controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
   var hostId = stores.room.state.peer;
   controller.connect(hostId, auth, function(err, admitBody) {
+    console.log('auth admitted');
     if (err) {
       actions.general.handleError(err);
     } else if (!admitBody.accepted) {

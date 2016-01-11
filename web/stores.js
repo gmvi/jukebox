@@ -59,7 +59,7 @@ var localStorageMixin = function(key) {
       }
     },
     dump: function() {
-      localStorage.setItem(JSON.stringify(this.state));
+      localStorage.setItem(key, JSON.stringify(this.state));
     },
   };
 };
@@ -177,9 +177,9 @@ var general = exports.general = Reflux.createStore({
     console.log('set mode to HOST');
   },
   
-  onJoinRoomAsClientFailed: function() {
+  onJoinRoomAsClientFailed: function(err) {
     console.log('pretend tooltip');
-    actions.general.handleError('joinRoomAsClient', res);
+    actions.general.handleError('joinRoomAsClient', err);
   },
 
   onJoinRoomAsClientCompleted: function() {
@@ -263,8 +263,12 @@ var auth = exports.auth = Reflux.createStore({
       }));
     } else if (this.mode == MODE.CLIENT) {
       // use namespaced storage device
-      var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
-      storage.setItem('auth', JSON.stringify(clientAuth));
+      if (_.isObject(this.credentials)) {
+        var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
+        storage.setItem('auth', JSON.stringify(clientAuth));
+      } else {
+        storage.removeItem('auth');
+      }
     } else {
       console.log('can\'t dump empty auth');
     }
@@ -294,6 +298,7 @@ var auth = exports.auth = Reflux.createStore({
   onJoinRoomAsClientFailed: function() {
     // client auth failed, clear it?
     console.log('failed to join room with client auth');
+    this.credentials = null;
   },
 });
 
@@ -313,7 +318,9 @@ var player = exports.player = Reflux.createStore({
 var playlist = exports.playlist = Reflux.createStore({
   mixins: [localStorageMixin('playlist')],
 
-  state: [ { id: 0, track: 'Track 1', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 1, track: 'Track 2', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 2, track: 'Track 3', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 3, track: 'Track 4', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 4, track: 'Track 5', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, { id: 5, track: 'Track 6', album: 'Example Album', artist: 'Example Artist', art: null, token: null, }, ],
+  state: {
+    tracks: [],
+  },
 
   init: function() {
   },
@@ -322,9 +329,26 @@ var playlist = exports.playlist = Reflux.createStore({
 
 var queue = exports.queue = Reflux.createStore({
   mixins: [localStorageMixin('queue')],
+  listenables: [actions.queue],
 
-  state: [ { id: 0 }, ],
+  state: {
+    nextId: 0,
+    tracks: [],
+  },
 
   init: function() {
   },
+
+  onAddTrack: function(track) {
+    track.id = this.state.nextId++;
+    this.state.tracks.push(track);
+    this.dump();
+    console.log('triggering queue update');
+    this.trigger(this.state);
+  },
+
+  onRemoveTrack: function(track) {
+    _.remove(this.tracks, 'id', track.id);
+  },
+
 });

@@ -120,7 +120,7 @@ exports.create = function create(callback) {
         window.debug.err = err;
         return;
       default:
-        console.log('PeerJS:', err, '\n', type);
+        console.log('PeerJS:', err, '\n', err.type);
         return;
     }
   });
@@ -323,7 +323,6 @@ _.assign(exports.ClientNode.prototype, {
     };
   },
   connect: function(hostId, auth, callback) {
-    if (callback === undefined) throw new Error();
     callback = once(callback);
     this.connection = this.peer.connect(hostId, {
       reliable: true
@@ -346,7 +345,7 @@ _.assign(exports.ClientNode.prototype, {
         } else if (data.method === 'admit') {
           invoke(callback, null, data.body);
         } else {
-          console.log('Warning: host responded with invalid method on auth' + 
+          console.log('Warning: host responded with invalid method on auth ' + 
                       'resource');
         }
       } else if (data.token in this.threads) {
