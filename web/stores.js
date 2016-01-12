@@ -17,9 +17,6 @@ var storage = null;
 var emitter = new EventEmitter();
 
 var stateMixin = {
-  getInitialState: function() {
-    return this.state;
-  },
   setState: function(newState) {
     if (!_.isPlainObject(newState)) {
       console.warn('setState takes a plain object');
@@ -30,16 +27,29 @@ var stateMixin = {
         this.state[key] = newState[key];
       }
     }, this);
-    this.trigger(this.state);
+    this.triggerState();
   },
-};
+  triggerState: function() {
+    this.trigger(this.getPublicState());
+  },
+  getPublicState: function() {
+    return this.state;
+  },
+  getInitialState: function() {
+    return this.getPublicState();
+  },
+}
 
 var localStorageMixin = function(key) {
-  return {
+  return _.extend({
     init: function() {
-      emitter.on('namespace-change', function() {
+      if (storage) {
         this.load();
-      }, this);
+      } else {
+        emitter.on('room-established', function() {
+          this.load();
+        }, this);
+      }
       emitter.on('storage/'+key, function(e) {
         this.setState(JSON.parse(e.newValue));
       }, this);
@@ -59,9 +69,9 @@ var localStorageMixin = function(key) {
       }
     },
     dump: function() {
-      localStorage.setItem(key, JSON.stringify(this.state));
+      storage.setItem(key, JSON.stringify(this.state));
     },
-  };
+  }, stateMixin);
 };
 
 // The stores.
@@ -93,9 +103,8 @@ var room = exports.room = Reflux.createStore({
     this.setState({ password: roomState.password });
   },
 
+  // from http api call
   onCreateRoomCompleted: function(status, body) {
-    console.log(body);
-    // http api call
     this.setState(body);
     // load the Storage device for the room once id is set
     storage = new NamespacedStorage(body.id);
@@ -201,20 +210,16 @@ var general = exports.general = Reflux.createStore({
           switch (res.body.reason) {
             case 'duplicate':
               this.setState({error: strings.TOOLTIP_PATHTOKEN_DUPLICATE});
-              return this.trigger();
             case 'invalid':
               this.setState({error: strings.TOOLTIP_PATHTOKEN_INVALID});
-              return this.trigger();
           }
         }
     }
     this.setState({error: strings.ERROR_UNKNOWN});
-    this.trigger();
   },
 
   onClearError: function() {
     this.setState({error: null});
-    this.trigger();
   },
 });
 
@@ -240,13 +245,11 @@ var auth = exports.auth = Reflux.createStore({
         room.setState(_.pick(hostAuth, 'password'));
         this.credentials = _.pick(hostAuth, 'key');
         actions.general.joinRoomAsHost();
-        this.trigger();
       } else if (_.isPlainObject(clientAuth)) {
         console.log('found client auth');
         this.mode = MODE.CLIENT;
         this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
         actions.general.joinRoomAsClient(this.credentials);
-        this.trigger();
       } else {
         console.log('no auth found');
       }
@@ -303,7 +306,7 @@ var auth = exports.auth = Reflux.createStore({
 });
 
 var player = exports.player = Reflux.createStore({
-  mixins: [localStorageMixin('player')],
+  //mixins: [localStorageMixin('player')],
   state: {
     playing: false,
     isSpotify: null,
@@ -311,18 +314,49 @@ var player = exports.player = Reflux.createStore({
   },
 
   init: function() {
-    this.playing = false;
   },
 });
 
+var a = localStorageMixin('asdf');
+for (p in a) {
+  console.log(p, a[p]);
+}
+
 var playlist = exports.playlist = Reflux.createStore({
   mixins: [localStorageMixin('playlist')],
+  listenables: [actions.clients, actions.player],
 
   state: {
-    tracks: [],
+    clients: [],
+    current: null,
+    next: null,
+  },
+
+  getPublicState: function() {
+    return [this.state.current, this.state.next];
   },
 
   init: function() {
+  },
+
+  onNewClient: function(clientId) {
+    this.state.clients.push(clientId);
+    this.dump();
+    // no need to trigger
+  },
+
+  onNext: function() {
+    if (this.state.next) {
+      this.setState({
+        current: this.state.next,
+        next: null,
+      });
+    } else if (this.state.current) {
+      this.setState({
+        current: null,
+      });
+    }
+    actions.playlist.update();
   },
 
 });
@@ -336,6 +370,10 @@ var queue = exports.queue = Reflux.createStore({
     tracks: [],
   },
 
+  getPublicState: function() {
+    return this.state.tracks;
+  },
+
   init: function() {
   },
 
@@ -344,7 +382,7 @@ var queue = exports.queue = Reflux.createStore({
     this.state.tracks.push(track);
     this.dump();
     console.log('triggering queue update');
-    this.trigger(this.state);
+    this.triggerState();
   },
 
   onRemoveTrack: function(track) {

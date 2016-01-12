@@ -197,7 +197,7 @@ router.get('/search/youtube', function(req, res, next) {
   streamingEdit(url, res, 'items.*', function(result, write) {
     write({
       id: result.id.videoId,
-      titlw: result.snippet.title,
+      title: result.snippet.title,
       art: result.snippet.thumbnails.default.url,
     });
   });

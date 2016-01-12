@@ -22,6 +22,7 @@ module.exports = React.createClass({
   },
 
   render: function() {
+    console.log(this.props.list, typeof this.props.list);
     return (
       <ul className="playlist">
       { this.props.list.map(function(item) {

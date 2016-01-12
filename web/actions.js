@@ -44,19 +44,18 @@ var clients = exports.clients = Reflux.createActions([
   'otherProfileUpdate',
 ]);
 
+var playlist = exports.playlist = Reflux.createActions([
+  'update',
+]);
+
 var queue = exports.queue = Reflux.createActions([
   'addTrack',
   'removeTrack',
 ]);
 
-var playlist = exports.playlist = Reflux.createActions([
-  'update',
-]);
-
 var player = exports.player = Reflux.createActions([
   'togglePause',
   'next',
-  'previous'
 ]);
 
 var files = exports.files = Reflux.createActions([
