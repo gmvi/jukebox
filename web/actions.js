@@ -46,11 +46,13 @@ var clients = exports.clients = Reflux.createActions([
 
 var playlist = exports.playlist = Reflux.createActions([
   'update',
+  'updated',
 ]);
 
 var queue = exports.queue = Reflux.createActions([
   'addTrack',
   'removeTrack',
+  'updated',
 ]);
 
 var player = exports.player = Reflux.createActions([

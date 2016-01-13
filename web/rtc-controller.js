@@ -145,13 +145,8 @@ var upgradeHost = function() {
       actions.otherProfileUpdate(postData);
       sendAdmit({accepted: true});
     } else if (resource === 'queue') {
-      _.forEach(postData, function(change) {
-        if (change.sign == 'add') {
-          actions.playlist.addTrack(change);
-        } else if (change.sign == 'remove') {
-          actions.playlist.removeTrack(change);
-        }
-      });
+      console.log('got queue', postData);
+      actions.playlist.update(clientId, postData);
       sendAdmit({accepted: true});
     } else {
       console.warn('unimplemented post to resource', resource);
@@ -164,18 +159,23 @@ var upgradeHost = function() {
   actions.general.updateInfo.listen(function (info) {
     controller.postAll('info', info);
   });
-  actions.clients.selfProfileUpdate.listen(function (update) {
-    controller.postAll('profiles', update);
-  });
-  actions.clients.otherProfileUpdate.listen(function (update) {
-    controller.postAll('profiles', update);
-  });
-  actions.playlist.update.listen(function (playlist) {
+  // actions.clients.selfProfileUpdate.listen(function (update) {
+  //   controller.postAll('profiles', update);
+  // });
+  // actions.clients.otherProfileUpdate.listen(function (update) {
+  //   controller.postAll('profiles', update);
+  // });
+  actions.queue.updated.listen(function(tracks) {
+    console.log('queue updated, passing along to playlist store');
+    actions.playlist.update(controller.hostId, tracks);
+  }),
+  actions.playlist.updated.listen(function () {
     controller.postAll('playlist', playlist);
   });
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
   // });
+  controller.listen();
 };
 
 // Client logic
@@ -183,8 +183,8 @@ var initClient = waitForPeer(function (auth) {
   console.log('initializing client node');
   controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
-  var hostId = stores.room.state.peer;
-  controller.connect(hostId, auth, function(err, admitBody) {
+  var roomPeer = stores.room.state.peer;
+  controller.connect(roomPeer, auth, function(err, admitBody) {
     console.log('auth admitted');
     if (err) {
       actions.general.handleError(err);
@@ -209,14 +209,17 @@ var initClient = waitForPeer(function (auth) {
       };
       controller.handlePost = function(resource, postBody) {
         if (resource === 'playlist') {
-          actions.playlist.update(postBody);
+          actions.playlist.updated(postBody);
         } else if (resource === 'profiles') {
           actions.clients.otherProfileUpdated(postBody);
         } else {
           console.warn('unimplemented post to resource', resource);
           sendPost({error: 'unimplemented'});
         }
-      }
+      };
+      actions.queue.updated.listen(function(tracks) {
+        controller.post('queue', tracks);
+      });
     }
   });
 });

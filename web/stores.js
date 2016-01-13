@@ -183,7 +183,6 @@ var general = exports.general = Reflux.createStore({
       mode: MODE.HOST,
       error: null,
     });
-    console.log('set mode to HOST');
   },
   
   onJoinRoomAsClientFailed: function(err) {
@@ -317,46 +316,72 @@ var player = exports.player = Reflux.createStore({
   },
 });
 
-var a = localStorageMixin('asdf');
-for (p in a) {
-  console.log(p, a[p]);
-}
-
 var playlist = exports.playlist = Reflux.createStore({
   mixins: [localStorageMixin('playlist')],
-  listenables: [actions.clients, actions.player],
+  listenables: [actions.playlist, actions.clients, actions.player],
 
   state: {
     clients: [],
-    current: null,
-    next: null,
+    queues: {},
+    list: [],
+  },
+
+  reconstructPlaylist: function() {
+    var list = [];
+    var exhausted = false;
+    for (var i = 0; exhausted == false && list.length < 2; i++) {
+      exhausted = true; // default if no tracks found
+      for (var j = 0; j < this.state.clients.length && list.length < 2; j++) {
+        // if client j has track in position i, add it to the list
+        var clientId = this.state.clients[j];
+        if (this.state.queues[clientId].length > i) {
+          list.push(this.state.queues[clientId][i]);
+          exhausted = false;
+        }
+      }
+    }
+    this.setState({ list: list });
+    console.log('playlist reconstructed:', this.state.list);
   },
 
   getPublicState: function() {
-    return [this.state.current, this.state.next];
+    return this.state.list;
   },
 
   init: function() {
   },
 
   onNewClient: function(clientId) {
-    this.state.clients.push(clientId);
-    this.dump();
-    // no need to trigger
+    console.log('new client');
+    if (general.state.mode == MODE.HOST) {
+      this.state.clients.push(clientId);
+      this.state.queues[clientId] = [];
+      this.dump();
+      // no need to trigger or reconstruct playlist
+    }
+  },
+
+  onUpdate: function(clientId, queue) {
+    console.log('onUpdate called', clientId, queue);
+    if (general.state.mode == MODE.HOST) {
+      this.state.queues[clientId] = queue;
+      this.reconstructPlaylist();
+      // reconstructPlaylist calls setState, which dumps and triggers
+    }
+  },
+
+  onUpdated: function(tracks) {
+    if (general.state.mode == MODE.CLIENT) {
+      this.state.list = tracks;
+    }
   },
 
   onNext: function() {
-    if (this.state.next) {
-      this.setState({
-        current: this.state.next,
-        next: null,
-      });
-    } else if (this.state.current) {
-      this.setState({
-        current: null,
-      });
+    if (general.state.mode == MODE.HOST) {
+      this.clients.push(this.clients.shift());
+      this.reconstructPlaylist();
+      actions.playlist.updated();
     }
-    actions.playlist.update();
   },
 
 });
@@ -380,13 +405,17 @@ var queue = exports.queue = Reflux.createStore({
   onAddTrack: function(track) {
     track.id = this.state.nextId++;
     this.state.tracks.push(track);
+    actions.queue.updated(this.getPublicState());
     this.dump();
     console.log('triggering queue update');
     this.triggerState();
   },
 
-  onRemoveTrack: function(track) {
-    _.remove(this.tracks, 'id', track.id);
+  onRemoveTrack: function(id) {
+    actions.queue.updated(this.getPublicState());
+    _.remove(this.state.tracks, 'id', id);
+    this.dump();
+    this.triggerState();
   },
 
 });

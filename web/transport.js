@@ -131,8 +131,11 @@ exports.create = function create(callback) {
 
 exports.HostNode = function HostNode(peer) {
   this.peer = peer;
+  this.hostId = generateToken();
   this.hostSecondaries = {};
-  this.clients = {};
+  this.clients = {
+    [this.hostId]: null
+  };
 
   // private method
   // clientId is a string, and must be a key of this.clients
@@ -143,7 +146,7 @@ exports.HostNode = function HostNode(peer) {
         // this data is part of an established thread
         var callback = this.clients[clientId].threads[data.token];
         delete this.clients[clientId].threads[data.token];
-        invoke(callback, data);
+        invoke(callback, err, data.body);
       } else if (data.method == 'get') {
         // new thread starting with a get
         var token = data.token;
@@ -225,6 +228,7 @@ exports.HostNode = function HostNode(peer) {
           clientId: clientId,
           clientSecret: clientSecret,
         });
+        this.handleClient(clientId);
       } else {
         sendAdmit({ accepted: false });
       }
@@ -239,6 +243,12 @@ exports.HostNode = function HostNode(peer) {
   }).bind(this));
 }
 _.assign(exports.HostNode.prototype, {
+  listen: function() {
+    setTimeout((function() {
+      this.handleClient(this.hostId);
+    }).bind(this), 0);
+  },
+
   // records a callback for the next event in a thread
   // clientId must be a member of this.clients
   recordCallback: function(clientId, token, callback) {
@@ -259,6 +269,8 @@ _.assign(exports.HostNode.prototype, {
   // handlePost: function(clientId, resource, postData, sendAdmit function)
   // sendAdmit: function(admitData)
   handlePost: noop,
+  // called when a client connects
+  handleClient: noop,
   // get: function(clientId, resource, recievePost callback)
   // recievePost: function(err, postData, sendAdmit function)
   // sendAdmit: function(admitData)
@@ -292,7 +304,7 @@ _.assign(exports.HostNode.prototype, {
       client.send({
         resource: resource,
         method: 'post',
-        data: body,
+        body: body,
       });
     });
   },
@@ -403,18 +415,23 @@ _.assign(exports.ClientNode.prototype, {
       });
     });
   },
-  // post: function(resource, body, receiveAdmit callback)
+  // post: function(resource, body, receiveAdmit optional callback)
   // receiveAdmit: function(admitBody)
   post: function(resource, body, callback) {
-    var token = generateToken(this.threads);
-    this.connection.send({
-      token: token,
+    var token;
+    var data = {
       resource: resource,
       method: 'post',
-      data: body,
-    });
-    this.recordCalback(token, function(err, admitBody) {
-      invoke(callback, err, admitBody);
-    });
+      body: body,
+    };
+    if (callback !== undefined) {
+      token = generateToken(this.threads);
+      data.token = token;
+      this.recordCalback(token, function(err, admitBody) {
+        invoke(callback, err, admitBody);
+      });
+    }
+    console.log('sending', data);
+    this.connection.send(data);
   },
 });
