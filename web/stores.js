@@ -41,7 +41,7 @@ var stateMixin = {
 }
 
 var localStorageMixin = function(key) {
-  return _.extend({
+  return _.extend(stateMixin, {
     init: function() {
       if (storage) {
         this.load();
@@ -52,6 +52,7 @@ var localStorageMixin = function(key) {
       }
       emitter.on('storage/'+key, function(e) {
         this.setState(JSON.parse(e.newValue));
+        console.log('localStorage update on', key);
       }, this);
     },
     load: function() {
@@ -71,7 +72,7 @@ var localStorageMixin = function(key) {
     dump: function() {
       storage.setItem(key, JSON.stringify(this.state));
     },
-  }, stateMixin);
+  });
 };
 
 // The stores.
@@ -95,6 +96,9 @@ var room = exports.room = Reflux.createStore({
       console.log('loaded room.id:', this.state.id);
       // load the Storage device for the room once id is set
       storage = new NamespacedStorage(this.state.id);
+      storage.on('storage', function(e) {
+        emitter.emit('storage/'+e.key, e);
+      });
       emitter.emit('room-established');
     }
   },
@@ -323,6 +327,7 @@ var playlist = exports.playlist = Reflux.createStore({
   state: {
     clients: [],
     queues: {},
+    current: null,
     list: [],
   },
 
@@ -376,13 +381,25 @@ var playlist = exports.playlist = Reflux.createStore({
     }
   },
 
+  shift: function() {
+    var current = this.state.list[0];
+    var currentClient = this.state.clients[0];
+    this.queues[currentClient].shift();
+    this.clients.push(this.state.clients.shift());
+    this.reconstructPlaylist();
+    actions.playlist.updated();
+  },
+
   onNext: function() {
     if (general.state.mode == MODE.HOST) {
-      this.clients.push(this.clients.shift());
-      this.reconstructPlaylist();
-      actions.playlist.updated();
+      if (this.state.list.length) {
+      }
     }
   },
+
+  onSelectCurrent: function() {
+    this.state.current = this.shift();
+  }
 
 });
 
@@ -407,7 +424,6 @@ var queue = exports.queue = Reflux.createStore({
     this.state.tracks.push(track);
     actions.queue.updated(this.getPublicState());
     this.dump();
-    console.log('triggering queue update');
     this.triggerState();
   },
 
@@ -418,4 +434,9 @@ var queue = exports.queue = Reflux.createStore({
     this.triggerState();
   },
 
+  onPop: function() {
+    this.state.tracks.shift();
+    this.dump();
+    this.triggerState();
+  },
 });

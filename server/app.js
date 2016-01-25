@@ -61,7 +61,17 @@ winston.info('loading application logic')
 // Connect to database. Loading this module sets up the db connection.
 var models = require('./models');
 if (commander.initdb) {
-  models.initialize();
+  models.initialize(function(err) {
+    if (err) {
+      console.log(err);
+      setImmediate(() => {
+        throw err;
+      });
+      setImmediate(() => {
+        process.exit(1);
+      });
+    } else process.exit(0);
+  });
 }
 
 // Set up express.
@@ -112,6 +122,7 @@ var render = (function() {
     template = handlebars.compile(templateString);
   }
   return function(vars) {
+    winston.info('serving vars: '+JSON.stringify(vars));
     if (!template || global.development) reload();
     return template({
       vars: JSON.stringify(vars)
@@ -134,6 +145,11 @@ app.get('/:token', function(req, res, next) {
   models.Room.where({pathtoken: req.params.token})
     .fetch()
     .then(function(room) {
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': 0,
+      });
       if (room) {
         // load the regular interface
         res.send(render({

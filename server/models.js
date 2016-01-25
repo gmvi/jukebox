@@ -7,13 +7,18 @@ var bookshelf = require('bookshelf')(knex);
 var utils = require('./utils');
 
 exports.initialize = function(cb) {
+  cb = cb || function(){};
   return knex.schema.createTable('rooms', function (table) {
     table.increments();
     table.string('name').defaultTo('Unnamed Room');
     table.string('key').notNullable();
     table.string('pathtoken').unique();
     table.string('peer').unique();
-  }).then(cb||function(){});
+  }).then(function() {
+    cb();
+  }, function(err) {
+    cb(err);
+  });
 }
 
 var Room = exports.Room = bookshelf.Model.extend({

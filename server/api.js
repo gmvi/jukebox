@@ -67,6 +67,11 @@ router.get('/rooms/:id', function(req, res) {
           res.sendStatus(404);
         } else {
           var resp = room.serializePublic();
+          res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': 0,
+          });
           res.json(resp);
         }
       });

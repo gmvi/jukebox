@@ -53,6 +53,7 @@ var queue = exports.queue = Reflux.createActions([
   'addTrack',
   'removeTrack',
   'updated',
+  'pop',
 ]);
 
 var player = exports.player = Reflux.createActions([
