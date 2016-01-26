@@ -2,20 +2,11 @@ var _    = require('lodash'),
     Peer = require('peerjs');
 
 var Router = require('./router');
+var Responder = require('./responder');
 
 THREAD_TIMEOUT = 1000*60*1; // 1 minute
 
 var noop = function() {};
-
-var invoke = function(callback) {
-  if (!_.isFunction(callback)) {
-    throw new Error();
-    console.log('Warning: expected callback function, got '+callback);
-    return;
-  }
-  var args = Array.prototype.slice.call(arguments, 1);
-  callback.apply(null, args);
-}
 
 var once = function(callback) {
   if (_.isFunction(callback)) return _.once(callback);
@@ -71,10 +62,6 @@ _.assign(ClientRecord.prototype, {
         this.main = Object.keys(this.connections)[0];
       }
     }
-  },
-  getMain: function() {
-    if (this.main === null) return null;
-    else return 
   },
   send: function(data) {
     if (this.main === null || !_.has(this.connections, this.main)) {
@@ -150,7 +137,7 @@ exports.HostNode = function HostNode(peer) {
         // this data is a response
         var callback = this.clients[clientId].threads[data.thread];
         delete this.clients[clientId].threads[data.thread];
-        invoke(callback, err, data.body);
+        callback(err, data.body);
       } else {
         var req = data;
         req.clientId = clientId;
@@ -182,9 +169,9 @@ exports.HostNode = function HostNode(peer) {
         console.log('accepting new connection from client', client.id);
         // record connection
         client.add(conn, auth.main);
-        conn.off('data', authHandler);
         hookUpClient(client.id, conn);
       } else {
+        console.log('rejecting established client');
         conn.send({
           method: 'post',
           path: 'error',
@@ -198,7 +185,6 @@ exports.HostNode = function HostNode(peer) {
       var clientId = generateToken(this.clients);
       var clientSecret = generateToken();
       this.clients[clientId] = new ClientRecord(clientId, clientSecret, conn);
-      conn.off('data', authHandler);
       hookUpClient(clientId, conn);
       conn.send({
         method: 'post',
@@ -210,6 +196,7 @@ exports.HostNode = function HostNode(peer) {
       });
       this.handleClient(clientId);
     } else {
+      console.log('rejecting new client');
       conn.send({
         method: 'post',
         path: 'error',
@@ -233,11 +220,11 @@ _.assign(exports.HostNode.prototype, {
     var threads = this.clients[clientId].threads;
     var timeout = setTimeout(function() {
       delete threads[thread];
-      invoke(callback, new Error('timeout'));
+      callback(new Error('timeout'));
     }, THREAD_TIMEOUT);
     threads[thread] = function(res) {
       clearTimeout(timeout);
-      invoke(callback, null, res);
+      callback(null, res);
     };
   },
   // called when a client connects
@@ -245,7 +232,7 @@ _.assign(exports.HostNode.prototype, {
   // callback is function(err, res)
   get: function(clientId, path, callback) {
     if (!_.has(this.clients, clientId)) {
-      invoke(callback, new Error('no client with that id'));
+      callback(new Error('no client with that id'));
       return;
     }
     var client = this.clients[clientId];
@@ -280,6 +267,8 @@ exports.ClientNode = function ClientNode(peer) {
   this.authError = null;
   this.router = new Router();
 
+  this.queuedMessages = [];
+
   this.peer.on('connection', function(conn) {
     // don't accept incoming connections
     conn.close();
@@ -288,16 +277,16 @@ exports.ClientNode = function ClientNode(peer) {
 _.assign(exports.ClientNode.prototype, {
   // records a callback for the next event in a thread
   recordCallback: function(thread, callback) {
-    var timeout = setTimeout(function() {
+    var timeout = setTimeout((function() {
       delete this.threads[thread];
       callback(new Error('timeout'));
-    }, THREAD_TIMEOUT);
-    this.threads[thread] = function(body) {
+    }).bind(this), THREAD_TIMEOUT);
+    this.threads[thread] = function(res) {
       clearTimeout(timeout);
-      callback(null, body);
+      callback(null, res);
     };
   },
-  connect: function(hostId, auth) {
+  connect: function(hostId, auth, cb) {
     if (this.connection) { throw new Error('can\'t reuse ClientNode'); }
     this.connection = this.peer.connect(hostId, {
       reliable: true,
@@ -306,12 +295,13 @@ _.assign(exports.ClientNode.prototype, {
     this.connection.on('error', function(err) {
       console.log('error from peer.js connection:', err);
     });
-    var off = function() {
+    var off = (function() {
       this.connection.off('open', openHandler);
       this.peer.off('peer-unavailable', unavailable);
-    };
+    }).bind(this);
     var openHandler = function() {
-      callback();
+      console.log('connection open');
+      cb();
       off();
     };
     this.connection.once('open', openHandler);
@@ -326,7 +316,7 @@ _.assign(exports.ClientNode.prototype, {
         // this data is part of an established thread
         var callback = this.threads[data.thread];
         delete this.threads[data.thread];
-        callback(null, data);
+        callback(data);
       } else {
         // new thread starting with a get
         var req = data;

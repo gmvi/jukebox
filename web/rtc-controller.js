@@ -117,11 +117,16 @@ var upgradeHost = function() {
     return auth.password == stores.room.state.password;
   };
   var router = controller.router;
+  console.log('setting up routing');
   router.get('profiles', function(req, res) {
     res.send(stores.clients.getProfiles());
   });
   router.get('info', function(req, res) {
     res.send(stores.settings.state);
+  });
+  router.get('playlist', function(req, res) {
+    console.log('sending playlist');
+    res.send(stores.playlist.getPublicState());
   });
   router.post('profile', function(req, res) {
     actions.otherProfileUpdate(req.clientId, req.body);
@@ -148,7 +153,7 @@ var upgradeHost = function() {
     actions.playlist.update(controller.hostId, tracks);
   }),
   actions.playlist.updated.listen(function () {
-    controller.postAll('playlist', playlist);
+    controller.postAll('playlist', stores.playlist.getPublicState());
   });
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
@@ -162,44 +167,26 @@ var initClient = waitForPeer(function (auth) {
   controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
   var roomPeer = stores.room.state.peer;
-  controller.connect(roomPeer, auth, function(err, admitBody) {
-    console.log('auth admitted');
-    if (err) {
-      actions.general.handleError(err);
-    } else if (!admitBody.accepted) {
-      console.log('Error: auth rejected');
-      actions.general.joinRoomAsClient.failed(new Error('auth rejected'));
-    } else {
-      actions.general.joinRoomAsClient.completed(admitBody);
-      controller.handleGet = function(resource, sendPost) {
-        if (resource.startsWith("files/")) {
-          var split = resource.split('/');
-          if (split.length != 2) {
-            sendPost({error: "malformed"});
-          } else {
-            var fileId = split[1];
-            // grab from store
-          }
-        } else {
-          console.warn('unimplemented post to resource', resource);
-          sendPost({error: 'unimplemented'});
-        }
-      };
-      controller.handlePost = function(resource, postBody) {
-        if (resource === 'playlist') {
-          actions.playlist.updated(postBody);
-        } else if (resource === 'queue') {
-          actions.queue.pop();
-        } else if (resource === 'profiles') {
-          actions.clients.otherProfileUpdated(postBody);
-        } else {
-          console.warn('unimplemented post to resource', resource);
-          sendPost({error: 'unimplemented'});
-        }
-      };
-      actions.queue.updated.listen(function(tracks) {
-        controller.post('queue', tracks);
-      });
-    }
+  controller.connect(roomPeer, auth, function(err) {
+    if (err) actions.general.joinRoomAsClient.failed(err);
+    else actions.general.joinRoomAsClient.completed();
+    console.log('getting playlist');
+    controller.get('playlist', function(err, res) {
+      console.log('handling playlist response');
+      actions.playlist.updated(res.body);
+    });
+    actions.queue.updated.listen(function(tracks) {
+      controller.post('queue', tracks);
+    });
+  });
+  var router = controller.router;
+  router.get('files/:id', function(req, res) {
+    res.sendStatus(501);
+  });
+  router.post('playlist', function(req, res) {
+    actions.playlist.updated(res.body);
+  });
+  router.post('queue', function(req, res) {
+    actions.queue.pop();
   });
 });
