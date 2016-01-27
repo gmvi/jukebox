@@ -52,7 +52,6 @@ actions.room.update.listen(function(update) {
     var endpoint = '/api/rooms/'+stores.room.state.id;
     var filteredUpdate = _.pick(update, 'name', 'pathtoken', 'peer');
     var qs = querystring.encode({ key: stores.auth.credentials.key });
-    console.log('sending room update:', update);
     request.patch(endpoint + '?' + qs)
       .send(filteredUpdate)
       .end(function(err, res) {

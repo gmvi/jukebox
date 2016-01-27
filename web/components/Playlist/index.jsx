@@ -17,7 +17,6 @@ module.exports = React.createClass({
 
   propTypes: {
     list: React.PropTypes.array.isRequired,
-    iconFA: React.PropTypes.string,
     onRemove: React.PropTypes.func,
   },
 
@@ -39,7 +38,7 @@ module.exports = React.createClass({
             album={item.album}
             artist={item.artist}
             art={item.art}
-            iconFA={this.props.iconFA}
+            iconFA={ this.props.onRemove?'remove':null }
             onClick={ this.makeRemoveHandler(item.id) }
           />;
         }, this)

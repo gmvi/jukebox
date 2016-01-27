@@ -27,7 +27,6 @@ actions.general.joinRoomAsHost.listen(function() {
 });
 
 actions.general.joinRoomAsClient.listen(function(auth) {
-  console.log('joinRoomAsClient called');
   initClient(auth);
 });
 
@@ -104,11 +103,12 @@ var initSecondaryHost = waitForPeer(function() {
 });
 
 var initPrimaryHost = waitForPeer(function() {
+  actions.room.update({ peer: peer.id });
   upgradeHost();
 });
 
 var upgradeHost = function() {
-  controller = new transport.HostNode(peer);
+  controller = new transport.HostNode(peer, stores.auth.clients);
   window.debug.controller = controller;
   controller.acceptHostSecondary = function(auth) {
     return auth.key == stores.auth.credentials.key;
@@ -128,16 +128,16 @@ var upgradeHost = function() {
     console.log('sending playlist');
     res.send(stores.playlist.getPublicState());
   });
-  router.post('profile', function(req, res) {
-    actions.otherProfileUpdate(req.clientId, req.body);
-    res.sendStatus(200);
-  });
+  //router.post('profile', function(req, res) {
+  //  actions.otherProfileUpdate(req.clientId, req.body);
+  //  res.sendStatus(200);
+  //});
   router.post('queue', function(req, res) {
     actions.playlist.update(req.clientId, req.body);
     res.sendStatus(200);
   });
-  controller.handleClient = function(clientId) {
-    actions.clients.newClient(clientId);
+  controller.handleNewClient = function(clientId, secret) {
+    actions.clients.newClient(clientId, secret);
   };
   actions.general.updateInfo.listen(function (info) {
     controller.postAll('info', info);
@@ -148,12 +148,9 @@ var upgradeHost = function() {
   // actions.clients.otherProfileUpdate.listen(function (update) {
   //   controller.postAll('profiles', update);
   // });
-  actions.queue.updated.listen(function(tracks) {
-    console.log('queue updated, passing along to playlist store');
-    actions.playlist.update(controller.hostId, tracks);
-  }),
-  actions.playlist.updated.listen(function () {
-    controller.postAll('playlist', stores.playlist.getPublicState());
+  stores.playlist.listen(function (playlist) {
+    console.log('posting playlist');
+    controller.postAll('playlist', playlist);
   });
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
@@ -170,9 +167,8 @@ var initClient = waitForPeer(function (auth) {
   controller.connect(roomPeer, auth, function(err) {
     if (err) actions.general.joinRoomAsClient.failed(err);
     else actions.general.joinRoomAsClient.completed();
-    console.log('getting playlist');
     controller.get('playlist', function(err, res) {
-      console.log('handling playlist response');
+      console.log('playlist response');
       actions.playlist.updated(res.body);
     });
     actions.queue.updated.listen(function(tracks) {
@@ -180,11 +176,14 @@ var initClient = waitForPeer(function (auth) {
     });
   });
   var router = controller.router;
+  router.post('auth', function(req, res) {
+    actions.general.recordAuth(req.body);
+  });
   router.get('files/:id', function(req, res) {
     res.sendStatus(501);
   });
   router.post('playlist', function(req, res) {
-    actions.playlist.updated(res.body);
+    actions.playlist.updated(req.body);
   });
   router.post('queue', function(req, res) {
     actions.queue.pop();

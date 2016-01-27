@@ -10,6 +10,8 @@ var actions   = require('./actions'),
     MODE      = utils.MODE;
 var NamespacedStorage = require('./storage');
 
+var MAX_PLAYLIST_LEN = 10;
+
 // contains the namespaced localStorage wrapper
 var storage = null;
 // Events:
@@ -28,6 +30,9 @@ var stateMixin = {
       }
     }, this);
     this.triggerState();
+    if (typeof this.dump == 'function') {
+      this.dump();
+    }
   },
   triggerState: function() {
     this.trigger(this.getPublicState());
@@ -52,7 +57,6 @@ var localStorageMixin = function(key) {
       }
       emitter.on('storage/'+key, function(e) {
         this.setState(JSON.parse(e.newValue));
-        console.log('localStorage update on', key);
       }, this);
     },
     load: function() {
@@ -154,19 +158,19 @@ var general = exports.general = Reflux.createStore({
       this.setState({mode: MODE.ERROR});
     }
     this.setState({pathtoken: window.location.pathname.slice(1)});
-    window.onpopstate = function(evt) {
-      this.setState(evt.state);
-    };
+    // window.onpopstate = function(evt) {
+    //   this.setState(evt.state);
+    // };
   },
 
-  updateHistory: function() {
-    history.pushState(
-      this.state,
-      "Peertable: "+this.state.name, // title
-      '/'+this.state.pathtoken // pathname
-    );
-    console.log('pushed state for', this.state.pathtoken);
-  },
+  // updateHistory: function() {
+  //   history.pushState(
+  //     this.state,
+  //     "Peertable: "+this.state.name, // title
+  //     '/'+this.state.pathtoken // pathname
+  //   );
+  //   console.log('pushed state for', this.state.pathtoken);
+  // },
 
   onCreateRoomFailed: function(err, res) {
     console.log('pretend tooltip');
@@ -179,7 +183,7 @@ var general = exports.general = Reflux.createStore({
       pathtoken: body.pathtoken,
       error: null,
     });
-    this.updateHistory();
+    // this.updateHistory();
   },
 
   onJoinRoomAsHostCompleted: function() {
@@ -231,27 +235,31 @@ var general = exports.general = Reflux.createStore({
 // One host auth object lives in the global namespace at 'hostAuth',
 // Client auth objects live at 'ns/{id}/auth'.
 var auth = exports.auth = Reflux.createStore({
-  listenables: [actions.general],
+  listenables: [actions.general, actions.clients],
 
   mode: null,
   credentials: null,
+  clients: null,
 
   init: function() {
     // If a room id was set then try to load authorization credentials.
     if (room.state.id) {
+      // load host auth from main storage
       var hostAuth = JSON.parse(localStorage.getItem('hostAuth'));
+      // load clientAuth from namespaced storage
       var clientAuth = JSON.parse(storage.getItem('auth'));
       // check host auth first then client auth
       if (_.isPlainObject(hostAuth) && hostAuth.id == room.state.id) {
         console.log('found matching host auth');
         this.mode = MODE.HOST;
+        this.clients = hostAuth.clients;
         room.setState(_.pick(hostAuth, 'password'));
         this.credentials = _.pick(hostAuth, 'key');
         actions.general.joinRoomAsHost();
       } else if (_.isPlainObject(clientAuth)) {
         console.log('found client auth');
         this.mode = MODE.CLIENT;
-        this.credentials = _.pick(clientAuth, 'clientId', 'clientSecret');
+        this.credentials = _.pick(clientAuth, 'clientId', 'secret');
         actions.general.joinRoomAsClient(this.credentials);
       } else {
         console.log('no auth found');
@@ -266,11 +274,12 @@ var auth = exports.auth = Reflux.createStore({
         id: room.state.id,
         password: room.state.password,
         key: this.credentials.key,
+        clients: this.clients,
       }));
     } else if (this.mode == MODE.CLIENT) {
       // use namespaced storage device
       if (_.isObject(this.credentials)) {
-        var clientAuth = _.pick(this.credentials, 'clientId', 'clientSecret');
+        var clientAuth = _.pick(this.credentials, 'clientId', 'secret');
         storage.setItem('auth', JSON.stringify(clientAuth));
       } else {
         storage.removeItem('auth');
@@ -283,17 +292,20 @@ var auth = exports.auth = Reflux.createStore({
   onCreateRoomCompleted: function(status, body) {
     this.mode = MODE.HOST;
     this.credentials = _.pick(body, 'key');
+    this.clients = {};
     this.dump();
   },
 
-  onJoinRoomAsClientCompleted: function(response) {
-    // if the auth mode is unset, a password-auth has occurred.
-    if (this.mode == null) {
-      console.log('recording new credentials');
-      this.mode = MODE.CLIENT;
-      this.credentials = _.pick(response, 'clientId', 'clientSecret');
-      this.dump();
-    }
+  onRecordAuth: function(credentials) {
+    this.mode = MODE.CLIENT;
+    this.credentials = _.pick(credentials, 'clientId', 'secret');
+    this.dump();
+  },
+
+  onNewClient: function(clientId, secret) {
+    console.log('new client');
+    this.clients[clientId] = secret;
+    this.dump();
   },
 
   onJoinRoomAsHostFailed: function() {
@@ -318,89 +330,6 @@ var player = exports.player = Reflux.createStore({
 
   init: function() {
   },
-});
-
-var playlist = exports.playlist = Reflux.createStore({
-  mixins: [localStorageMixin('playlist')],
-  listenables: [actions.playlist, actions.clients, actions.player],
-
-  state: {
-    clients: [],
-    queues: {},
-    current: null,
-    list: [],
-  },
-
-  reconstructPlaylist: function() {
-    var list = [];
-    var exhausted = false;
-    for (var i = 0; exhausted == false && list.length < 2; i++) {
-      exhausted = true; // default if no tracks found
-      for (var j = 0; j < this.state.clients.length && list.length < 2; j++) {
-        // if client j has track in position i, add it to the list
-        var clientId = this.state.clients[j];
-        if (this.state.queues[clientId].length > i) {
-          list.push(this.state.queues[clientId][i]);
-          exhausted = false;
-        }
-      }
-    }
-    this.setState({ list: list });
-    console.log('playlist reconstructed:', this.state.list);
-  },
-
-  getPublicState: function() {
-    return this.state.list;
-  },
-
-  init: function() {
-  },
-
-  onNewClient: function(clientId) {
-    console.log('new client');
-    if (general.state.mode == MODE.HOST) {
-      this.state.clients.push(clientId);
-      this.state.queues[clientId] = [];
-      this.dump();
-      // no need to trigger or reconstruct playlist
-    }
-  },
-
-  onUpdate: function(clientId, queue) {
-    console.log('onUpdate called', clientId, queue);
-    if (general.state.mode == MODE.HOST) {
-      this.state.queues[clientId] = queue;
-      this.reconstructPlaylist();
-      // reconstructPlaylist calls setState, which dumps and triggers
-    }
-  },
-
-  onUpdated: function(tracks) {
-    if (general.state.mode == MODE.CLIENT) {
-      this.state.list = tracks;
-    }
-  },
-
-  shift: function() {
-    var current = this.state.list[0];
-    var currentClient = this.state.clients[0];
-    this.queues[currentClient].shift();
-    this.clients.push(this.state.clients.shift());
-    this.reconstructPlaylist();
-    actions.playlist.updated();
-  },
-
-  onNext: function() {
-    if (general.state.mode == MODE.HOST) {
-      if (this.state.list.length) {
-      }
-    }
-  },
-
-  onSelectCurrent: function() {
-    this.state.current = this.shift();
-  }
-
 });
 
 var queue = exports.queue = Reflux.createStore({
@@ -440,3 +369,108 @@ var queue = exports.queue = Reflux.createStore({
     this.triggerState();
   },
 });
+
+var playlist = exports.playlist = Reflux.createStore({
+  mixins: [localStorageMixin('playlist')],
+  listenables: [actions.general, actions.playlist, actions.clients,
+                actions.player],
+
+  state: {
+    clients: null,
+    queues: null,
+    current: null,
+    list: [],
+  },
+
+  reconstructPlaylist: function() {
+    var list = [];
+    var exhausted = false;
+    loop:
+    for (var i = 0; exhausted == false; i++) {
+      exhausted = true; // default if no tracks found
+      for (var j = 0; j < this.state.clients.length; j++) {
+        // if client j has track in position i, add it to the list
+        var clientId = this.state.clients[j];
+        if (this.state.queues[clientId].length > i) {
+          list.push(this.state.queues[clientId][i]);
+          if (list.length >= MAX_PLAYLIST_LEN) break loop;
+          exhausted = false;
+        }
+      }
+    }
+    this.setState({ list: list });
+    console.log('playlist reconstructed:', this.state.list);
+  },
+
+  getPublicState: function() {
+    return this.state.list;
+  },
+
+  init: function() {
+    this.listenTo(queue, (function(hostQueue) {
+      if (general.state.mode == MODE.HOST) {
+        this.onUpdate('0', hostQueue);
+      }
+    }).bind(this));
+  },
+
+  onCreateRoomCompleted: function() {
+    this.setState({
+      queues: {'0':[]},
+      clients: ['0'],
+    });
+  },
+
+  onNewClient: function(clientId) {
+    if (general.state.mode == MODE.HOST) {
+      this.state.clients.push(clientId);
+      this.state.queues[clientId] = [];
+      this.dump();
+      // no need to trigger or reconstruct playlist
+    }
+  },
+
+  onUpdate: function(clientId, queue) {
+    if (general.state.mode == MODE.HOST) {
+      // clone the queue
+      queue = queue.slice();
+      queue.forEach(function(e, i) {
+        // clone each track before modifying id
+        e = queue[i] = _.clone(e);
+        e.id = clientId+'-'+e.id;
+      });
+      this.state.queues[clientId] = queue;
+      this.reconstructPlaylist();
+      // reconstructPlaylist calls setState, which dumps and triggers
+    }
+  },
+
+  onUpdated: function(tracks) {
+    if (general.state.mode == MODE.CLIENT) {
+      this.setState({list: tracks});
+    }
+  },
+
+  shift: function() {
+    var current = this.state.list[0];
+    var currentClient = this.state.clients[0];
+    this.queues[currentClient].shift();
+    this.clients.push(this.state.clients.shift());
+    this.reconstructPlaylist();
+    actions.playlist.updated();
+  },
+
+  onNext: function() {
+    if (general.state.mode == MODE.HOST) {
+      if (this.state.list.length) {
+      }
+    }
+  },
+
+  onSelectCurrent: function() {
+    this.state.current = this.shift();
+  }
+
+});
+
+//window.debug.stores = exports;

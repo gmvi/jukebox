@@ -26,6 +26,7 @@ var general = exports.general = Reflux.createActions([
   'clearError',
 
   'updateInfo',
+  'recordAuth',
 ]);
 
 var peer = exports.peer = Reflux.createActions([

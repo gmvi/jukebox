@@ -20,7 +20,7 @@ module.exports = React.createClass({
     Reflux.connect(stores.queue, 'queue'),
   ],
   
-  onRemoveTrack: function(id) {
+  onRemoveFromQueue: function(id) {
     actions.queue.removeTrack(id);
   },
 
@@ -29,12 +29,13 @@ module.exports = React.createClass({
       <div className="app">
         <div className="left-pane">
           <Player />
+          Playlist
+          <Playlist list={this.state.playlist} />
         </div>
         <div className="right-pane">
-          Queue
+          My Queue
           <Playlist list={this.state.queue}
-                    iconFA='remove'
-                    onRemove={this.onRemoveTrack} />
+                    onRemove={this.onRemoveFromQueue} />
           <Controls />
         </div>
       </div>
