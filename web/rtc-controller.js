@@ -27,7 +27,6 @@ actions.general.joinRoomAsHost.listen(function() {
 });
 
 actions.general.joinRoomAsClient.listen(function(auth) {
-  console.log('joinRoomAsClient called');
   initClient(auth);
 });
 
@@ -51,64 +50,50 @@ var initSecondaryHost = waitForPeer(function() {
   if (peerId) {
     // try to connect to host peer
     console.log('primary host record found, trying to connect as secondary');
-    var hostConnection = peer.connect(peerId);
+    var hostConnection = peer.connect(peerId, {
+      reliable: true,
+      metadata: stores.auth.credentials,
+    });
     window.debug = window.debug || {};
     window.debug.conn = hostConnection;
     window.debug.peer = peer;
     // check for connection failure
     var unavailableHandler = function(unavailableId) {
+      console.log(unavailableId);
       if (peerId == unavailableId) {
+        peer.off('peer-unavailable', unavailableHandler);
+        //
         console.log('primary host unavailable, registering self as host');
-        off();
-        // TODO: change this b/c it violates actions->stores dataflow
         actions.room.update({ peer: peer.id });
-        upgradeHost();
         actions.general.joinRoomAsHost.completed();
+        upgradeHost();
       }
     };
     var openHandler = function() {
+      peer.off('peer-unavailable', unavailableHandler);
+      //
       console.log('connected to primary host');
-    }
-    var dataHandler = function(data) {
-      if (data.resource == 'auth') {
-        if (data.method == 'get') {
-          hostConnection.send({
-            method: 'post',
-            resource: 'auth',
-            body: stores.auth.credentials,
-          });
-        } else if (data.method == 'admit') {
-          if (data.body.accepted) {
-            console.log('accepted by host');
-            hostConnection.off('data', dataHandler);
-            actions.general.joinRoomAsHost.completed();
-          } else {
-            // TODO: handle failed host auth
-          }
-        } else {
-          // invalid auth method
-          console.log('invalid auth method from host');
-        }
-      }
-      // else ignore it
+      actions.general.joinRoomAsHost.completed();
     };
-    var disconnectHandler = function(err) {
-      console.log('error on hostConnection:', err);
-      console.log('type:', err.type);
+    var closeHandler = function() {
+      console.log('lost connection to primary host');
       actions.room.update({ peer: peer.id });
       upgradeHost();
     };
+    var errorHandler = _.once(function(err) {
+      peer.off('peer-unavailable', unavailableHandler); // just in case
+      //
+      console.log('error on hostConnection:', err);
+      console.log('type:', err.type);
+    });
     var off = function() {
       peer.off('peer-unavailable', unavailableHandler);
-      hostConnection.off('open', openHandler);
-      hostConnection.off('error', disconnectHandler);
-      hostConnection.off('data', dataHandler);
     };
     // custom suptype of error event
     peer.on('peer-unavailable', unavailableHandler);
-    hostConnection.on('data', dataHandler);
-    hostConnection.on('open', openHandler);
-    hostConnection.on('error', disconnectHandler);
+    hostConnection.once('open', openHandler);
+    hostConnection.once('error', errorHandler);
+    hostConnection.once('close', closeHandler);
   } else {
     console.log('no primary host record found, registering as host');
     actions.room.update({ peer: peer.id });
@@ -118,11 +103,12 @@ var initSecondaryHost = waitForPeer(function() {
 });
 
 var initPrimaryHost = waitForPeer(function() {
+  actions.room.update({ peer: peer.id });
   upgradeHost();
 });
 
 var upgradeHost = function() {
-  controller = new transport.HostNode(peer);
+  controller = new transport.HostNode(peer, stores.auth.clients);
   window.debug.controller = controller;
   controller.acceptHostSecondary = function(auth) {
     return auth.key == stores.auth.credentials.key;
@@ -130,91 +116,76 @@ var upgradeHost = function() {
   controller.acceptNewClient = function(auth) {
     return auth.password == stores.room.state.password;
   };
-  controller.handleGet = function(clientId, resource, sendPost) {
-    if (resource === 'profiles') {
-      sendPost(stores.clients.getProfiles());
-    } else if (resource === 'info') {
-      sendPost(stores.settings.state);
-    } else {
-      console.warn('unimplemented get to resource', resource);
-      sendPost({error: 'unimplemented'});
-    }
-  };
-  controller.handlePost = function(clientId, resource, postData, sendAdmit) {
-    if (resource === 'profile') {
-      actions.otherProfileUpdate(postData);
-      sendAdmit({accepted: true});
-    } else if (resource === 'queue') {
-      _.forEach(postData, function(change) {
-        if (change.sign == 'add') {
-          actions.playlist.addTrack(change);
-        } else if (change.sign == 'remove') {
-          actions.playlist.removeTrack(change);
-        }
-      });
-      sendAdmit({accepted: true});
-    } else {
-      console.warn('unimplemented post to resource', resource);
-      sendPost({error: 'unimplemented'});
-    }
-  };
-  controller.handleClient = function(clientId) {
-    actions.clients.newClient(clientId);
+  var router = controller.router;
+  console.log('setting up routing');
+  router.get('profiles', function(req, res) {
+    res.send(stores.clients.getProfiles());
+  });
+  router.get('info', function(req, res) {
+    res.send(stores.settings.state);
+  });
+  router.get('playlist', function(req, res) {
+    console.log('sending playlist');
+    res.send(stores.playlist.getPublicState());
+  });
+  //router.post('profile', function(req, res) {
+  //  actions.otherProfileUpdate(req.clientId, req.body);
+  //  res.sendStatus(200);
+  //});
+  router.post('queue', function(req, res) {
+    actions.playlist.update(req.clientId, req.body);
+    res.sendStatus(200);
+  });
+  controller.handleNewClient = function(clientId, secret) {
+    actions.clients.newClient(clientId, secret);
   };
   actions.general.updateInfo.listen(function (info) {
     controller.postAll('info', info);
   });
-  actions.clients.selfProfileUpdate.listen(function (update) {
-    controller.postAll('profiles', update);
-  });
-  actions.clients.otherProfileUpdate.listen(function (update) {
-    controller.postAll('profiles', update);
-  });
-  actions.playlist.update.listen(function (playlist) {
+  // actions.clients.selfProfileUpdate.listen(function (update) {
+  //   controller.postAll('profiles', update);
+  // });
+  // actions.clients.otherProfileUpdate.listen(function (update) {
+  //   controller.postAll('profiles', update);
+  // });
+  stores.playlist.listen(function (playlist) {
+    console.log('posting playlist');
     controller.postAll('playlist', playlist);
   });
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
   // });
+  controller.listen();
 };
 
 // Client logic
 var initClient = waitForPeer(function (auth) {
+  console.log('initializing client node');
   controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
-  var hostId = stores.room.state.peer;
-  controller.connect(hostId, auth, function(err, admitBody) {
-    if (err) {
-      actions.general.handleError(err);
-    } else if (!admitBody.accepted) {
-      console.log('Error: auth rejected');
-      actions.general.joinRoomAsClient.failed(new Error('auth rejected'));
-    } else {
-      actions.general.joinRoomAsClient.completed(admitBody);
-      controller.handleGet = function(resource, sendPost) {
-        if (resource.startsWith("files/")) {
-          var split = resource.split('/');
-          if (split.length != 2) {
-            sendPost({error: "malformed"});
-          } else {
-            var fileId = split[1];
-            // grab from store
-          }
-        } else {
-          console.warn('unimplemented post to resource', resource);
-          sendPost({error: 'unimplemented'});
-        }
-      };
-      controller.handlePost = function(resource, postBody) {
-        if (resource === 'playlist') {
-          actions.playlist.update(postBody);
-        } else if (resource === 'profiles') {
-          actions.clients.otherProfileUpdated(postBody);
-        } else {
-          console.warn('unimplemented post to resource', resource);
-          sendPost({error: 'unimplemented'});
-        }
-      }
-    }
+  var roomPeer = stores.room.state.peer;
+  controller.connect(roomPeer, auth, function(err) {
+    if (err) actions.general.joinRoomAsClient.failed(err);
+    else actions.general.joinRoomAsClient.completed();
+    controller.get('playlist', function(err, res) {
+      console.log('playlist response');
+      actions.playlist.updated(res.body);
+    });
+    actions.queue.updated.listen(function(tracks) {
+      controller.post('queue', tracks);
+    });
+  });
+  var router = controller.router;
+  router.post('auth', function(req, res) {
+    actions.general.recordAuth(req.body);
+  });
+  router.get('files/:id', function(req, res) {
+    res.sendStatus(501);
+  });
+  router.post('playlist', function(req, res) {
+    actions.playlist.updated(req.body);
+  });
+  router.post('queue', function(req, res) {
+    actions.queue.pop();
   });
 });

@@ -1,9 +1,10 @@
-var EventEmitter = require('eventemitter3');
+var _ = require('lodash'),
+    EventEmitter = require('eventemitter3');
 var utils = require('./utils');
 
-var TOP_NAMESPACE = 'ns';
+var PREFIX = 'ns';
 var SEP = '/';
-var namespaceRegex = /^ns\/([^\/]+)\/(.*)$/;
+var namespaceRegex = /^ns\/([^\/]+?)\/(.*)$/;
 var NAMESPACE_TIMEOUT = 1000*60*60*24; // 24 hours
 var CLEANUP_INTERVAL = 1000*60*60; // 1 hour
 
@@ -17,24 +18,24 @@ var defineGetter = function(obj, attr, func) {
 
 // namespace can't contain the separator character
 var addNamespace = function(namespace) {
-  var key = TOP_NAMESPACE + SEP + SEP + 'namespaces';
+  var key = PREFIX + SEP + SEP + 'namespaces';
   // TODO: optimize this with a :-concatenated string instead of JSON.
   var namespaces = JSON.parse(localStorage.getItem(key));
   if (!_.isArray(namespaces)) namespaces = [];
   if (!_.contains(namespaces, namespace)) namespaces.push(namespace);
   localStorage.setItem(key, JSON.stringify(namespaces));
-  var prefix = TOP_NAMESPACE + SEP + namespace + SEP + SEP;
+  var prefix = PREFIX + SEP + namespace + SEP + SEP;
   localStorage.setItem(prefix + 'keys', '[]');
   localStorage.setItem(prefix + 'ts', Date.now());
 };
 
 var clearNamespaces = function() {
-  var namespacesKey = TOP_NAMESPACE + SEP + SEP + 'namespaces';
+  var namespacesKey = PREFIX + SEP + SEP + 'namespaces';
   var namespaces = JSON.parse(localStorage.getItem(namespacesKey));
   if (!_.isArray(namespaces)) namespaces = [];
   for (var i = 0; i < namespaces.length; i++) {
     var namespace = namespaces[i];
-    var prefix = TOP_NAMESPACE + SEP + namespace + SEP;
+    var prefix = PREFIX + SEP + namespace + SEP;
     var key = prefix + SEP + 'ts';
     var timestamp = Number(localStorage.getItem(key));
     if (timestamp + NAMESPACE_TIMEOUT < Date.now()) {
@@ -42,46 +43,45 @@ var clearNamespaces = function() {
       storage.clear();
       _.pullAt(namespaces, i);
       i--;
-      localStorage.setItem(key, JSON.stringify(namespaces));
+      localStorage.setItem(namespacesKey, JSON.stringify(namespaces));
     }
   };
 };
-clearNamespaces();
-setInterval(clearNamespaces, CLEANUP_INTERVAL);
 
 // events
 var emitter = new EventEmitter();
 var lastKeyName = null;
 var lastValue = null;
 window.addEventListener('storage', function(e) {
-  if (e.key.startsWith(TOP_NAMESPACE + SEP)) {
-    var startPos = TOP_NAMESPACE.length + 1;
+  if (e.key.startsWith(PREFIX + SEP)) {
+    var startPos = PREFIX.length + 1;
     var match = e.key.match(namespaceRegex);
     if (!match) return;
-    var namespace = match[0];
-    var keyName = match[1];
+    var namespace = match[1];
+    var keyName = match[2];
     if (keyName[0] === SEP) {
       // internal key, ignore
       return;
     }
-    e.keyName = keyName;
-    e.namespace = namespace;
-    emitter.emit(namespace, e);
+    var e2 = _.pick(e, 'oldValue', 'newValue', 'url', 'storageArea');
+    e2.key = keyName;
+    e2.namespace = namespace;
+    emitter.emit(namespace, e2);
   }
 });
 
 // storage object
 var NamespacedStorage = module.exports = function(namespace) {
   EventEmitter.call(this);
-  this.prefix = TOP_NAMESPACE + SEP + namespace + SEP;
+  this.prefix = PREFIX + SEP + namespace + SEP;
   this.internalPrefix = this.prefix + SEP;
 
   addNamespace(namespace);
 
-  var emit = function(e) {
+  var emit = (function(e) {
     this.emit('storage', e);
-  };
-  emitter.on(namespace, emit, this);
+  }).bind(this);
+  emitter.on(namespace, emit);
 
   this.destroy = function() {
     emitter.off(namespace, emit);
@@ -92,7 +92,7 @@ var NamespacedStorage = module.exports = function(namespace) {
   //   return localStorage.getItem(internalPrefix+'length');
   // });
 }
-_.assign(NamespacedStorage.prototype, {
+_.extend(NamespacedStorage.prototype, EventEmitter.prototype, {
   // TODO: make this compliant with the Web Storage standard
   // key: function(i) {
   //   var keys = JSON.parse(localStorage.getItem(internalPrefix+'keys'));
@@ -150,4 +150,9 @@ _.assign(NamespacedStorage.prototype, {
     localStorage.setItem(key, Date.now());
   },
 });
+
+// periodically clean up old namespaces
+clearNamespaces();
+setInterval(clearNamespaces, CLEANUP_INTERVAL);
+
 window.NamespacedStorage = NamespacedStorage;

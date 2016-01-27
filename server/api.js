@@ -67,6 +67,11 @@ router.get('/rooms/:id', function(req, res) {
           res.sendStatus(404);
         } else {
           var resp = room.serializePublic();
+          res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': 0,
+          });
           res.json(resp);
         }
       });
@@ -177,7 +182,7 @@ router.get('/search/soundcloud', searchMiddleware, function(req, res, next) {
               : null;
       write({
         id: track.id,
-        track: track.title,
+        title: track.title,
         artist: track.user.username,
         art: art,
       });
@@ -197,7 +202,7 @@ router.get('/search/youtube', function(req, res, next) {
   streamingEdit(url, res, 'items.*', function(result, write) {
     write({
       id: result.id.videoId,
-      track: result.snippet.title,
+      title: result.snippet.title,
       art: result.snippet.thumbnails.default.url,
     });
   });
@@ -214,7 +219,7 @@ router.get('/search/spotify', function(req, res, next) {
   streamingEdit(url, res, 'tracks.items.*', function(result, write) {
     write({
       id: result.id,
-      track: result.name,
+      title: result.name,
       album: result.album.name,
       artist: result.artists[0].name,
       art: result.album.images[result.album.images.length-1].url,

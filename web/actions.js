@@ -26,6 +26,7 @@ var general = exports.general = Reflux.createActions([
   'clearError',
 
   'updateInfo',
+  'recordAuth',
 ]);
 
 var peer = exports.peer = Reflux.createActions([
@@ -44,21 +45,21 @@ var clients = exports.clients = Reflux.createActions([
   'otherProfileUpdate',
 ]);
 
-var queue = exports.queue = Reflux.createActions([
-  'selfAddTrack',
-  'selfRemoveTrack',
-]);
-
 var playlist = exports.playlist = Reflux.createActions([
   'update',
+  'updated',
+]);
+
+var queue = exports.queue = Reflux.createActions([
   'addTrack',
   'removeTrack',
+  'updated',
+  'pop',
 ]);
 
 var player = exports.player = Reflux.createActions([
   'togglePause',
   'next',
-  'previous'
 ]);
 
 var files = exports.files = Reflux.createActions([

@@ -32,3 +32,6 @@
   }
 }
 
+.app .controls-container {
+  z-index: 2;
+}

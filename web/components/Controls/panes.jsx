@@ -65,13 +65,12 @@ var SearchPane = exports.SearchPane = React.createClass({
       });
   },
 
-  addTrackHandler: function(track) {
-    var self = this;
-    return function(evt) {
-      actions.playlist.add(_.assign({
-        service: self.props.service,
-      }, track));
-    }
+  addTrackHandler: function(i) {
+    return (function(evt) {
+      actions.queue.addTrack(_.assign({
+        service: this.props.service,
+      }, this.state.results[i]));
+    }).bind(this);
   },
 
   render: function() {
@@ -95,20 +94,18 @@ var SearchPane = exports.SearchPane = React.createClass({
               { "Results for " + this.state.resultQuery }
             </p>
             <div className="search-results">
-              { this.state.results.map(function(track) {
+              { this.state.results.map(function(track, i) {
                   return (
                     <div key={track.id}
                          className="search-result-item overlay-container" >
                       <Track
-                        track={track.track} 
+                        title={track.title} 
                         album={track.album}
                         artist={track.artist}
                         art={track.art}
+                        iconFA="plus"
+                        onClick={this.addTrackHandler(i)}
                       />
-                      <button className="button-add-track overlay-right"
-                              onClick={this.addTrackHandler(track)} >
-                        <span className="fa fa-plus" />
-                      </button>
                     </div>
                   );
                 }, this)

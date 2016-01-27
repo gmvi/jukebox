@@ -126,18 +126,3 @@
 .search-pane .search-results {
   margin-right: -15px;
 }
-
-.search-result-item .track {
-  padding-right: 44px;
-}
-
-.search-result-item .button-add-track {
-  width: 36px;
-  height: 36px;
-  line-height: 36px;
-  margin: 6px;
-  text-align: center;
-  border: none;
-  background: none;
-  cursor: pointer;
-}

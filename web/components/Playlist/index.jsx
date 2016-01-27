@@ -17,21 +17,32 @@ module.exports = React.createClass({
 
   propTypes: {
     list: React.PropTypes.array.isRequired,
+    onRemove: React.PropTypes.func,
   },
 
-  render: function(){
+  makeRemoveHandler: function(id) {
+    return (function() {
+      if (this.props.onRemove) {
+        this.props.onRemove(id);
+      }
+    }).bind(this);
+  },
+
+  render: function() {
     return (
       <ul className="playlist">
-        { this.props.list.map(function(item) {
-            return <Track
-                     key={item.id}
-                     track={item.track} 
-                     album={item.album}
-                     artist={item.artist}
-                     art={item.art}
-                   />;
-          })
-        }
+      { this.props.list.map(function(item) {
+          return <Track
+            key={item.id}
+            title={item.title} 
+            album={item.album}
+            artist={item.artist}
+            art={item.art}
+            iconFA={ this.props.onRemove?'remove':null }
+            onClick={ this.makeRemoveHandler(item.id) }
+          />;
+        }, this)
+      }
       </ul>
     );
   }

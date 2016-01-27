@@ -22,10 +22,16 @@
 }
 
 .track-main {
+  width: 100%;
+  padding-left: 40px;
+  margin-left: -36px;
   display: inline-block;
-  float: left;
-  width: 270px;
-  padding: 0 4px 0 4px;
+  padding-right: 4px;
+}
+
+.track-with-button .track-main {
+  padding-right: 40px;
+  margin-right: -36px;
 }
 
 .track-track, .track-album, .track-artist {
@@ -37,4 +43,17 @@
 
 .track-album {
   display: none;
+}
+
+.track-button {
+  float: right;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  z-index: 1;
 }
