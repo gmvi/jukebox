@@ -1,13 +1,17 @@
 /* fix box sizing */
-html {
+html * {
   box-sizing: border-box;
 }
+
 *, *:before, *:after {
   box-sizing: inherit;
 }
 
 body {
   margin: 0;
+  font-family: Inconsolata, monospace;
+  font-weight: 700;
+  color: #31211d;
 }
 
 .center {

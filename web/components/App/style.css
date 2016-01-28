@@ -1,9 +1,4 @@
 /* general app structure */
-html * {
-  box-sizing: border-box;
-  font-family: Helvetica, Arial, sans-serif;
-}
-
 .Header {
   height: 50px;
 }

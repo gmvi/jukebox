@@ -6,6 +6,8 @@
   border: 2px solid black;
   border-radius: 8px;
   background: aliceblue;
+  line-height: 18px;
+  font-size: 14px;
 }
 
 .track-art-container {
@@ -37,8 +39,6 @@
 .track-track, .track-album, .track-artist {
   display: block;
   height: 18px;
-  line-height: 18px;
-  font-size: 14px;
 }
 
 .track-album {
