@@ -460,7 +460,9 @@ var playlist = exports.playlist = Reflux.createStore({
   },
 
   shift: function() {
-    if (this.state.list.length != 0) {
+    if (this.state.list.length == 0) {
+      this.state.current = null;
+    } else {
       var current = this.state.list[0];
       var currentClient = this.state.clients[0];
       this.state.current = current;
@@ -504,7 +506,7 @@ var playerStore = exports.player = Reflux.createStore({
     console.log('new track:', track);
     if (track) {
       player.load(track);
-      console.log(player.widget);
+      console.log('setting player widget');
       this.setState({
         widget: player.widget,
       });

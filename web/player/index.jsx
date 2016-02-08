@@ -31,7 +31,7 @@ _.extend(Player.prototype, EventEmitter.prototype, {
   register: function(serviceName, serviceHandler) {
     if (this.services[serviceName] !== undefined) {
       throw new Error('service name already in use or reserved: '+serviceName);
-    }
+   }
     // don't register finish handler twice
     if (!_.some(this.services, (value) => { value === serviceHandler })) {
       serviceHandler.on('finish', () => {
@@ -56,7 +56,10 @@ function StreamPlugin(getSrc) {
   this.getSrc = getSrc;
   this.audio = new Audio();
   this.audio.controls = true;
-  this.widget = <Wrapper node={this.audio} />;
+  this.widget = <Wrapper
+    className="widget widget-native"
+    node={this.audio}
+  />;
   _.forEach([
     'error', 'abort', 'canplay', 'pause', 'play', 'waiting'
   ], type => {
@@ -92,28 +95,118 @@ var optsAutoplay = _.defaults({
 }, opts);
 function SoundCloudPlugin() {
   EventEmitter.call(this);
-  this.iframe = document.createElement('iframe');
+  var iframe = document.createElement('iframe');
   // the ? is necessary for the sc.load() method to work properly
-  this.iframe.src = 'https://w.soundcloud.com/player/?';
-  this.widget = <Wrapper className="widget widget-sc" node={this.iframe} />;
-  window.debug = window.debug || {};
-  window.debug.i = this.iframe;
-  this.sc = SC.Widget(this.iframe);
-  window.debug.sc = this.sc;
+  iframe.src = 'https://w.soundcloud.com/player/?';
+  this.widget = <Wrapper
+    key="sc"
+    className="widget widget-sc"
+    node={iframe}
+  />;
+  this.sc = SC.Widget(iframe);
   this.sc.bind(SC.Widget.Events.FINISH, () => {
     this.emit('finish');
+  });
+  this.sc.bind(SC.Widget.Events.READY, () => {
+    if (this.whenReady) {
+      if (this.whenReady === 'play') this.sc.play();
+      else if (this.whenReady === 'pause') this.sc.pause();
+      this.whenReady = null;
+    }
+    this.ready = true;
   });
 }
 _.extend(SoundCloudPlugin.prototype, EventEmitter.prototype, {
   load: function(track, autoplay) {
+    this.ready = false;
     var o = autoplay?optsAutoplay:opts;
     this.sc.load("http://api.soundcloud.com/tracks/"+track.id, o);
   },
   play: function() {
-    this.sc.play();
+    if (this.ready) this.sc.play();
+    else this.whenReady = 'play';
   },
   pause: function() {
-    this.sc.pause();
+    if (this.ready) this.sc.pause();
+    else this.whenReady = 'pause';
+  },
+});
+
+// private static vars
+var queue = [];
+var ready = false;
+window.onYouTubeIframeAPIReady = function() {
+  console.log('youtube api ready');
+  ready = true;
+  queue.forEach(fn => {
+    fn();
+  });
+  queue = [];
+};
+var onYTReady = function(fn) {
+  if (ready) fn();
+  else queue.push(fn);
+};
+function YouTubePlugin() {
+  EventEmitter.call(this);
+  var div = document.createElement('div');
+  var inner = div.appendChild(document.createElement('div'));
+  onYTReady(() => {
+    console.log('initializing player');
+    this.yt = new YT.Player(inner, {
+      height: '390',
+      width: '640',
+      videoId: '',
+      playerVars: { controls: 1, fs: 0, },
+      events: {
+        'onReady': this.onPlayerReady.bind(this),
+        'onStateChange': this.onPlayerStateChange.bind(this),
+      }
+    });
+  });
+  this.widget = <Wrapper
+    key="yt"
+    className="widget widget-yt"
+    node={div}
+  />;
+  this.ready = false;
+  this.queue = [];
+}
+_.extend(YouTubePlugin.prototype, EventEmitter.prototype, {
+  whenReady: function(fn) {
+    if (this.ready) fn();
+    else this.queue.push(fn);
+  },
+  onPlayerReady: function(e) {
+    console.log('player ready');
+    this.ready = true;
+    this.queue.forEach(fn => {
+      fn();
+    });
+    this.queue = [];
+  },
+  onPlayerStateChange: function(e) {
+    if (e.data == YT.PlayerState.ENDED) {
+      this.emit('finish');
+    } else {
+      console.log('player state change', e);
+    }
+  },
+  load: function(track, autoplay) {
+    console.log('load called');
+    this.whenReady(() => { 
+      this.yt.loadVideoById(track.id);
+    });
+  },
+  play: function() {
+    this.whenReady(() => { 
+      this.yt.playVideo();
+    });
+  },
+  pause: function() {
+    this.whenReady(() => { 
+      this.yt.pauseVideo();
+    });
   },
 });
 
@@ -122,5 +215,6 @@ player.register('webrtc', new StreamPlugin(function(track) {
 }));
 
 player.register('soundcloud', new SoundCloudPlugin());
+player.register('youtube', new YouTubePlugin());
 
 //TODO: implement services

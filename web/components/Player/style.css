@@ -15,6 +15,10 @@
   height: 116px;
 }
 
+.player .widget-yt {
+  height: 240px;
+}
+
 .player .controls {
   height: 40px;
 }
