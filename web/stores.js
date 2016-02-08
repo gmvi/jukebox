@@ -8,14 +8,17 @@ var actions   = require('./actions'),
     strings   = require('./strings'),
     utils     = require('shared'),
     MODE      = utils.MODE;
-var NamespacedStorage = require('./storage');
+var NamespacedStorage = require('./storage'),
+    player            = require('./player');
+
+console.log(player.widget);
 
 var MAX_PLAYLIST_LEN = 10;
 
 // contains the namespaced localStorage wrapper
 var storage = null;
 // Events:
-//   storage/{key}  emitted on storage events
+//   storage  emitted on storage events
 var emitter = new EventEmitter();
 
 var stateMixin = {
@@ -46,7 +49,7 @@ var stateMixin = {
 }
 
 var localStorageMixin = function(key) {
-  return _.extend(stateMixin, {
+  return _.extend({}, stateMixin, {
     init: function() {
       if (storage) {
         this.load();
@@ -320,18 +323,6 @@ var auth = exports.auth = Reflux.createStore({
   },
 });
 
-var player = exports.player = Reflux.createStore({
-  //mixins: [localStorageMixin('player')],
-  state: {
-    playing: false,
-    isSpotify: null,
-    pointer: null,
-  },
-
-  init: function() {
-  },
-});
-
 var queue = exports.queue = Reflux.createStore({
   mixins: [localStorageMixin('queue')],
   listenables: [actions.queue],
@@ -346,19 +337,36 @@ var queue = exports.queue = Reflux.createStore({
   },
 
   init: function() {
+    actions.playlist.consume.listen((clientId, trackId) => {
+      console.log('consuming', trackId);
+      if (clientId == '0') {
+        for (var i = 0; i < this.state.tracks.length; i++) {
+          console.log(this.state.tracks[i]);
+          if (this.state.tracks[i]._id == trackId) {
+            _.pullAt(this.state.tracks, i);
+            this.dump();
+            this.triggerState();
+            return;
+          }
+        }
+      }
+    });
   },
 
   onAddTrack: function(track) {
-    track.id = this.state.nextId++;
+    track._id = this.state.nextId++;
     this.state.tracks.push(track);
     actions.queue.updated(this.getPublicState());
     this.dump();
     this.triggerState();
   },
 
-  onRemoveTrack: function(id) {
+  onRemoveTrack: function(_id) {
+    console.log('removing', _id);
+    _.remove(this.state.tracks, function(value) {
+      return value._id === _id;
+    });
     actions.queue.updated(this.getPublicState());
-    _.remove(this.state.tracks, 'id', id);
     this.dump();
     this.triggerState();
   },
@@ -372,17 +380,17 @@ var queue = exports.queue = Reflux.createStore({
 
 var playlist = exports.playlist = Reflux.createStore({
   mixins: [localStorageMixin('playlist')],
-  listenables: [actions.general, actions.playlist, actions.clients,
-                actions.player],
+  listenables: [actions.general, actions.playlist, actions.clients],
 
   state: {
-    clients: null,
-    queues: null,
+    clients: {},
+    queues: {},
     current: null,
     list: [],
   },
 
   reconstructPlaylist: function() {
+    console.log(this.state.queues);
     var list = [];
     var exhausted = false;
     loop:
@@ -407,11 +415,11 @@ var playlist = exports.playlist = Reflux.createStore({
   },
 
   init: function() {
-    this.listenTo(queue, (function(hostQueue) {
+    this.listenTo(queue, (hostQueue) => {
       if (general.state.mode == MODE.HOST) {
         this.onUpdate('0', hostQueue);
       }
-    }).bind(this));
+    });
   },
 
   onCreateRoomCompleted: function() {
@@ -437,7 +445,7 @@ var playlist = exports.playlist = Reflux.createStore({
       queue.forEach(function(e, i) {
         // clone each track before modifying id
         e = queue[i] = _.clone(e);
-        e.id = clientId+'-'+e.id;
+        e._id = clientId+'-'+e._id;
       });
       this.state.queues[clientId] = queue;
       this.reconstructPlaylist();
@@ -452,25 +460,56 @@ var playlist = exports.playlist = Reflux.createStore({
   },
 
   shift: function() {
-    var current = this.state.list[0];
-    var currentClient = this.state.clients[0];
-    this.queues[currentClient].shift();
-    this.clients.push(this.state.clients.shift());
-    this.reconstructPlaylist();
-    actions.playlist.updated();
-  },
-
-  onNext: function() {
-    if (general.state.mode == MODE.HOST) {
-      if (this.state.list.length) {
-      }
+    if (this.state.list.length != 0) {
+      var current = this.state.list[0];
+      var currentClient = this.state.clients[0];
+      this.state.current = current;
+      this.state.queues[currentClient].shift();
+      var id = current._id;
+      id = id.slice(id.indexOf('-')+1);
+      actions.playlist.consume(currentClient, id);
+      this.state.clients.push(this.state.clients.shift());
+      this.reconstructPlaylist();
+      actions.playlist.updated(this.getPublicState());
     }
   },
 
-  onSelectCurrent: function() {
-    this.state.current = this.shift();
-  }
+});
 
+var playerStore = exports.player = Reflux.createStore({
+  mixins: [stateMixin],
+  listenables: [actions.player],
+
+  state: {
+    playing: false,
+    widget: null,
+  },
+
+  init: function() {
+    if (playlist.state.current) {
+      player.load(playlist.state.current, true);
+    }
+    player.on('finish', () => {
+      actions.player.next();
+    });
+    this.setState({
+      widget: player.widget,
+    });
+  },
+
+  onNext: function() {
+    playlist.shift();
+    console.log(playlist.state);
+    var track = playlist.state.current;
+    console.log('new track:', track);
+    if (track) {
+      player.load(track);
+      console.log(player.widget);
+      this.setState({
+        widget: player.widget,
+      });
+    }
+  },
 });
 
 //window.debug.stores = exports;

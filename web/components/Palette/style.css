@@ -1,14 +1,14 @@
-.controls-container {
+.palette-container {
   padding: 20px 40px 0;
   width: 100%;
-  position: absolute;
+  position: fixed;
   left: 0;
   bottom: 0;
   font-family: Roboto, arial, sans-serif;
   font-weight: 400;
 }
 
-.controls {
+.palette {
   height: 100%;
   border: 2px solid black;
   border-bottom: 0;
@@ -18,37 +18,37 @@
   overflow: hidden;
 }
 
-.controls.collapsed {
+.palette.collapsed {
   height: 32px;
 }
 
-.controls .tabs {
+.palette .tabs {
   border-bottom: 1px solid black;
   height: 30px;
   text-align: center;
 }
 
-.controls .tabs > * {
+.palette .tabs > * {
   float: left;
 }
 
-.controls .spaced-tabs {
+.palette .spaced-tabs {
   width: 100%;
   height: 100%;
   padding-right: 60px;
   margin-right: -60px;
 }
-.controls .spaced-tabs > .tab {
+.palette .spaced-tabs > .tab {
   width: 25%;
 }
-.controls .tabs > .tab {
+.palette .tabs > .tab {
   width: 30px;
 }
-.controls .tabs > .tab {
+.palette .tabs > .tab {
   width: 30px;
 }
 
-.controls .tab {
+.palette .tab {
   display: inline-block;
   height: 30px;
   line-height: 30px;
@@ -58,26 +58,26 @@
   overflow: hidden;
 }
 
-.controls .tab:hover {
+.palette .tab:hover {
   background-color: rgba(0,0,0,.1);
 }
 
-.controls .tabs > .tab:last-child {
+.palette .tabs > .tab:last-child {
   border: none;
 }
 
-.controls .tab-settings {
+.palette .tab-settings {
   height: 100%;
   padding: 
 }
 
-.controls .icon {
+.palette .icon {
   display: inline-block;
   font-family: FontAwesome;
   width: 24px;
 }
 
-.controls .controls-content {
+.palette .palette-content {
   display: none;
   width: 100%;
   height: 400px;
@@ -85,23 +85,23 @@
   /* bottom padding is accounted for in the last child of the .scroll element */
 }
 
-.controls .controls-stack.show-soundcloud .controls-soundcloud {
+.palette .palette-stack.show-soundcloud .palette-soundcloud {
   display: block;
 }
 
-.controls .controls-stack.show-youtube .controls-youtube {
+.palette .palette-stack.show-youtube .palette-youtube {
   display: block;
 }
 
-.controls .controls-stack.show-spotify .controls-spotify {
+.palette .palette-stack.show-spotify .palette-spotify {
   display: block;
 }
 
-.controls .controls-stack.show-upload .controls-upload {
+.palette .palette-stack.show-upload .palette-upload {
   display: block;
 }
 
-.controls .controls-stack.show-settings .controls-settings {
+.palette .palette-stack.show-settings .palette-settings {
   display: block;
 }
 

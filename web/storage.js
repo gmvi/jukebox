@@ -22,7 +22,7 @@ var addNamespace = function(namespace) {
   // TODO: optimize this with a :-concatenated string instead of JSON.
   var namespaces = JSON.parse(localStorage.getItem(key));
   if (!_.isArray(namespaces)) namespaces = [];
-  if (!_.contains(namespaces, namespace)) namespaces.push(namespace);
+  if (!_.includes(namespaces, namespace)) namespaces.push(namespace);
   localStorage.setItem(key, JSON.stringify(namespaces));
   var prefix = PREFIX + SEP + namespace + SEP + SEP;
   localStorage.setItem(prefix + 'keys', '[]');
@@ -78,9 +78,9 @@ var NamespacedStorage = module.exports = function(namespace) {
 
   addNamespace(namespace);
 
-  var emit = (function(e) {
+  var emit = (e) => {
     this.emit('storage', e);
-  }).bind(this);
+  };
   emitter.on(namespace, emit);
 
   this.destroy = function() {
@@ -110,7 +110,7 @@ _.extend(NamespacedStorage.prototype, EventEmitter.prototype, {
     if (keyName[0] === '/') throw new Error('can\'t start keyName with /');
     var keysKey = this.internalPrefix + 'keys';
     var keys = JSON.parse(localStorage.getItem(keysKey));
-    if (!_.contains(keys, keyName)) {
+    if (!_.includes(keys, keyName)) {
       keys.push(keyName);
       localStorage.setItem(keysKey, JSON.stringify(keys));
     }
@@ -123,7 +123,7 @@ _.extend(NamespacedStorage.prototype, EventEmitter.prototype, {
     if (keyName[0] === '/') throw new Error('can\'t start keyName with /');
     var keysKey = this.internalPrefix + 'keys';
     var keys = JSON.parse(localStorage.getItem(keysKey));
-    if (_.contains(keys, keyName)) {
+    if (_.includes(keys, keyName)) {
       _.remove(keys, keyName);
       localStorage.setItem(keysKey, JSON.stringify(keys));
     }

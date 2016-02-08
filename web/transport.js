@@ -71,12 +71,12 @@ _.assign(ClientRecord.prototype, {
     }
   },
   cleanUpConnections: function() {
-    _.forEach(this.connections, (function(conn, id) {
+    _.forEach(this.connections, (conn, id) => {
       if (!conn.open) {
         delete this.connections[id];
         this.connectionCount--;
       }
-    }).bind(this));
+    });
   },
   send: function(data) {
     console.log('sending', data);
@@ -141,17 +141,17 @@ exports.HostNode = function HostNode(peer, clientSecrets) {
   this.clients = {
     [this.hostId]: null
   };
-  _.forEach(clientSecrets, (function(secret, clientId) {
+  _.forEach(clientSecrets, (secret, clientId) => {
     this.clients[clientId] = new ClientRecord(clientId, secret);
-  }).bind(this));
+  });
   this.router = new Router();
   this.listening = false;
 
   // private method
   // clientId is a string, and must be a key of this.clients
   // conn is a PeerJS DataConnection
-  var hookUpClient = (function (clientId, conn) {
-    conn.on('data', (function (data) {
+  var hookUpClient = (clientId, conn) => {
+    conn.on('data', (data) => {
       if (data.thread in this.clients[clientId].threads) {
         // this data is a response
         var callback = this.clients[clientId].threads[data.thread];
@@ -167,10 +167,10 @@ exports.HostNode = function HostNode(peer, clientSecrets) {
           res.sendStatus(404);
         });
       }
-    }).bind(this));
-  }).bind(this);
+    });
+  };
 
-  this.peer.on('connection', (function(conn) {
+  this.peer.on('connection', (conn) => {
     // don't accept before listening
     if (!this.listening) {
       conn.close();
@@ -226,7 +226,7 @@ exports.HostNode = function HostNode(peer, clientSecrets) {
       });
       conn.close();
     }
-  }).bind(this));
+  });
 }
 _.assign(exports.HostNode.prototype, {
   listen: function() {
@@ -267,11 +267,33 @@ _.assign(exports.HostNode.prototype, {
       else callback(null, res);
     });
   },
+  post: function(clientId, path, callback) {
+    var hasCb = (callback != undefined);
+    if (!_.has(this.clients, clientId)) {
+      var msg = 'no client with that id';
+      if (hasCb) callback(new Error(msg));
+      else throw new Error(msg);
+      return;
+    }
+    var client = this.clients[clientId];
+    var data = {
+      path: path,
+      method: 'post',
+    }
+    if (hasCb) {
+      var thread = generatetoken(client.threads);
+      data.thread = thread;
+      this.recordCallback(thread, function(err, res) {
+        if (err) callback(err);
+        else callback(null, res);
+      });
+    }
+    client.send(data);
+  },
   // notifications don't require callbacks
   postAll: function(path, body) {
     console.log('postAll("'+path+'")');
     _.forOwn(this.clients, function(client) {
-      console.log('posting to', client);
       if (!client) return; // since host's clientId is registered in clients
       client.send({
         path: path,
@@ -300,10 +322,10 @@ exports.ClientNode = function ClientNode(peer) {
 _.assign(exports.ClientNode.prototype, {
   // records a callback for the next event in a thread
   recordCallback: function(thread, callback) {
-    var timeout = setTimeout((function() {
+    var timeout = setTimeout(() => {
       delete this.threads[thread];
       callback(new Error('timeout'));
-    }).bind(this), THREAD_TIMEOUT);
+    }, THREAD_TIMEOUT);
     this.threads[thread] = function(res) {
       clearTimeout(timeout);
       callback(null, res);
@@ -318,10 +340,10 @@ _.assign(exports.ClientNode.prototype, {
     this.connection.on('error', function(err) {
       console.log('error from peer.js connection:', err);
     });
-    var off = (function() {
+    var off = () => {
       this.connection.off('open', openHandler);
       this.peer.off('peer-unavailable', unavailable);
-    }).bind(this);
+    };
     var openHandler = function() {
       console.log('connection open');
       cb();
@@ -334,7 +356,7 @@ _.assign(exports.ClientNode.prototype, {
     };
     this.peer.on('peer-unavailable', unavailable);
     // attach the main data handler
-    this.connection.on('data', (function(data) {
+    this.connection.on('data', (data) => {
       if (data.thread in this.threads) {
         // this data is part of an established thread
         var callback = this.threads[data.thread];
@@ -343,14 +365,14 @@ _.assign(exports.ClientNode.prototype, {
       } else {
         // new thread starting with a get
         var req = data;
-        var res = new Responder(req, (function(data) {
+        var res = new Responder(req, (data) => {
           this.connection.send(data);
-        }).bind(this));
+        });
         this.router.handle(req, res, function () {
           res.sendStatus(404);
         });
       }
-    }).bind(this));
+    });
   },
   get: function(path, callback) {
     var thread = generateToken(this.threads);

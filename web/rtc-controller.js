@@ -148,9 +148,15 @@ var upgradeHost = function() {
   // actions.clients.otherProfileUpdate.listen(function (update) {
   //   controller.postAll('profiles', update);
   // });
-  stores.playlist.listen(function (playlist) {
-    console.log('posting playlist');
+  actions.playlist.updated.listen(function (playlist) {
     controller.postAll('playlist', playlist);
+  });
+  actions.playlist.consume.listen(function (clientId, trackId) {
+    if (clientId != '0') {
+      controller.post(clientId, 'queue', {
+        id: trackId
+      });
+    }
   });
   // actions.playlist.getFile.listen(function (file) {
   //   // what do?
@@ -163,18 +169,7 @@ var initClient = waitForPeer(function (auth) {
   console.log('initializing client node');
   controller = new transport.ClientNode(peer);
   window.debug.controller = controller;
-  var roomPeer = stores.room.state.peer;
-  controller.connect(roomPeer, auth, function(err) {
-    if (err) actions.general.joinRoomAsClient.failed(err);
-    else actions.general.joinRoomAsClient.completed();
-    controller.get('playlist', function(err, res) {
-      console.log('playlist response');
-      actions.playlist.updated(res.body);
-    });
-    actions.queue.updated.listen(function(tracks) {
-      controller.post('queue', tracks);
-    });
-  });
+  // set up routing
   var router = controller.router;
   router.post('auth', function(req, res) {
     actions.general.recordAuth(req.body);
@@ -186,6 +181,19 @@ var initClient = waitForPeer(function (auth) {
     actions.playlist.updated(req.body);
   });
   router.post('queue', function(req, res) {
-    actions.queue.pop();
+    actions.queue.removeTrack(req.body.id);
+  });
+  // connect
+  var roomPeer = stores.room.state.peer;
+  controller.connect(roomPeer, auth, function(err) {
+    if (err) actions.general.joinRoomAsClient.failed(err);
+    else actions.general.joinRoomAsClient.completed();
+    controller.get('playlist', function(err, res) {
+      console.log('playlist response');
+      actions.playlist.updated(res.body);
+    });
+    actions.queue.updated.listen(function(tracks) {
+      controller.post('queue', tracks);
+    });
   });
 });
