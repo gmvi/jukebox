@@ -3,17 +3,19 @@
     <meta charset="utf-8">
     <title>Peertable</title>
     <link href='https://fonts.googleapis.com/css?family=Roboto|Inconsolata:700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
     {{#if vars}}
     <script>
       window.vars = {{{vars}}};
     </script>
     {{/if}}
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://w.soundcloud.com/player/api.js"></script>
   </head>
   <body>
     <div id="app-container">
     </div>
     <script src="/assets/bundle.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
   </body>
 </html>

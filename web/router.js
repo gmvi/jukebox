@@ -68,10 +68,10 @@ var makeMethod = function(method) {
     // use(['a', 'b'], fn) => { use('a', fn); use('b', fn); }
     if (_.isArray(path)) {
       var args = Array.prototype.slice.call(arguments);
-      path.forEach((function(path) {
+      path.forEach(path => {
         args[0] = path;
         attachHandler.apply(this, args);
-      }).bind(this));
+      });
       return;
     }
     var fnMsg = 'Router.' + (method || 'use') + ' takes'

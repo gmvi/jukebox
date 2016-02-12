@@ -1,5 +1,3 @@
-/** @jsx React.DOM */
-
 'use strict';
 
 var React = require('react'),
@@ -19,7 +17,7 @@ module.exports = React.createClass({
   mixins: [Reflux.connect(stores.general)],
 
   render: function() {
-    var content = (function() {
+    var content = (() => {
       switch (this.state.mode) {
         case MODE.CREATE:
           return <CreateView />
@@ -36,7 +34,7 @@ module.exports = React.createClass({
             </div>
           );
       }
-    }).call(this);
+    })();
     return (
       <div>
         <Header title={this.state.pathtoken} />

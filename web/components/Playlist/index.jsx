@@ -1,5 +1,3 @@
-/** @jsx React.DOM */
-
 'use strict';
 
 var React = require('react');
@@ -21,11 +19,11 @@ module.exports = React.createClass({
   },
 
   makeRemoveHandler: function(id) {
-    return (function() {
+    return () => {
       if (this.props.onRemove) {
         this.props.onRemove(id);
       }
-    }).bind(this);
+    };
   },
 
   render: function() {
@@ -33,13 +31,13 @@ module.exports = React.createClass({
       <ul className="playlist">
       { this.props.list.map(function(item) {
           return <Track
-            key={item.id}
+            key={item._id}
             title={item.title} 
             album={item.album}
             artist={item.artist}
             art={item.art}
             iconFA={ this.props.onRemove?'remove':null }
-            onClick={ this.makeRemoveHandler(item.id) }
+            onClick={ this.makeRemoveHandler(item._id) }
           />;
         }, this)
       }

@@ -66,11 +66,11 @@ var SearchPane = exports.SearchPane = React.createClass({
   },
 
   addTrackHandler: function(i) {
-    return (function(evt) {
+    return (evt) => {
       actions.queue.addTrack(_.assign({
         service: this.props.service,
       }, this.state.results[i]));
-    }).bind(this);
+    };
   },
 
   render: function() {

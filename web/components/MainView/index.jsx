@@ -1,12 +1,10 @@
-/** @jsx React.DOM */
-
 'use strict';
 
 var React  = require('react'),
     Reflux = require('reflux');
 
 var Playlist = require('components/Playlist'),
-    Controls = require('components/Controls'),
+    Palette  = require('components/Palette'),
     Player   = require('components/Player'),
     actions  = require('web/actions'),
     stores   = require('web/stores');
@@ -29,14 +27,14 @@ module.exports = React.createClass({
       <div className="app">
         <div className="left-pane">
           <Player />
-          Playlist
+          Up Next
           <Playlist list={this.state.playlist} />
         </div>
         <div className="right-pane">
           My Queue
           <Playlist list={this.state.queue}
                     onRemove={this.onRemoveFromQueue} />
-          <Controls />
+          <Palette />
         </div>
       </div>
     );

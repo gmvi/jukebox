@@ -1,5 +1,3 @@
-/** @jsx React.DOM */
-
 'use strict';
 
 var React = require('react'),
@@ -18,7 +16,7 @@ var TAB = new shared.Enum([ 'youtube', 'soundcloud', 'spotify', 'upload',
 require('./style.css');
 
 module.exports = React.createClass({
-  displayName: 'Controls',
+  displayName: 'Palette',
   
   getInitialState: function() {
     return {
@@ -26,15 +24,13 @@ module.exports = React.createClass({
     };
   },
 
-  tab: function(newTab) {
-    var self = this;
-    var upper = TAB[newTab];
-    var controls = this;
-    return function(e) {
-      controls.setState({tab: upper});
-      setTimeout(function() {
-        if (self.refs[newTab] && 'function' == typeof self.refs[newTab].focus) {
-          self.refs[newTab].focus();
+  tab: function(name) {
+    var upper = TAB[name];
+    return (e) => {
+      this.setState({tab: upper});
+      setTimeout(() => {
+        if (this.refs[name] && _.isFunction(this.refs[name].focus)) {
+          this.refs[name].focus();
         }
       }, 0);
     };
@@ -42,10 +38,10 @@ module.exports = React.createClass({
 
   render: function() {
     var collapsed = this.state.tab == TAB.COLLAPSED;
-    var cxstack = cx( 'controls-stack', 'show-'+this.state.tab.toLowerCase());
+    var cxstack = cx( 'palette-stack', 'show-'+this.state.tab.toLowerCase());
     return (
-      <div className="controls-container">
-        <div className={cx('controls', {collapsed: collapsed})}>
+      <div className="palette-container">
+        <div className={cx('palette', {collapsed: collapsed})}>
           <div className="tabs">
             <div className="spaced-tabs">
               <div className="tab" onClick={this.tab('youtube')} >
@@ -69,19 +65,19 @@ module.exports = React.createClass({
             </div>
           </div>
           <div className={cxstack}>
-            <div className="controls-content controls-youtube">
+            <div className="palette-content palette-youtube">
               <panes.SearchPane ref="youtube" service="youtube" />
             </div>
-            <div className="controls-content controls-soundcloud">
+            <div className="palette-content palette-soundcloud">
               <panes.SearchPane ref="soundcloud" service="soundcloud" />
             </div>
-            <div className="controls-content controls-spotify">
+            <div className="palette-content palette-spotify">
               <panes.SearchPane ref="spotify" service="spotify" />
             </div>
-            <div className="controls-content controls-upload">
+            <div className="palette-content palette-upload">
               <panes.UploadPane ref="upload" />
             </div>
-            <div className="controls-content controls-settings">
+            <div className="palette-content palette-settings">
               <panes.SettingsPane ref="settings" />
             </div>
           </div>
