@@ -10,7 +10,7 @@ var dummyService = { load: _.noop, play: _.noop, pause: _.noop };
 function Player() {
   EventEmitter.call(this);
   this.currentTrack = null;
-  this.widget = <DummyWidget />;
+  this.stoppedWidget = <DummyWidget />;
   this.services = {};
   Object.defineProperty(this, 'currentService', {
     get: function() {
@@ -23,7 +23,7 @@ function Player() {
   });
   Object.defineProperty(this, 'widget', {
     get: function() {
-      return this.currentService.widget;
+      return this.currentService.widget || this.stoppedWidget;
     },
   });
 }

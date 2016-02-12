@@ -186,14 +186,18 @@ var initClient = waitForPeer(function (auth) {
   // connect
   var roomPeer = stores.room.state.peer;
   controller.connect(roomPeer, auth, function(err) {
-    if (err) actions.general.joinRoomAsClient.failed(err);
-    else actions.general.joinRoomAsClient.completed();
-    controller.get('playlist', function(err, res) {
-      console.log('playlist response');
-      actions.playlist.updated(res.body);
-    });
-    actions.queue.updated.listen(function(tracks) {
-      controller.post('queue', tracks);
-    });
+    if (err) {
+      actions.general.joinRoomAsClient.failed(err);
+      console.log(err, err.origErr);
+    } else {
+      actions.general.joinRoomAsClient.completed();
+      controller.get('playlist', function(err, res) {
+        console.log('playlist response');
+        actions.playlist.updated(res.body);
+      });
+      actions.queue.updated.listen(function(tracks) {
+        controller.post('queue', tracks);
+      });
+    }
   });
 });

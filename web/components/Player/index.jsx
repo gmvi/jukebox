@@ -13,6 +13,7 @@ module.exports = React.createClass({
   mixins: [Reflux.connect(stores.player)],
 
   render: function(){
+    console.log('rendering player', this.state.widget);
     return (
       <div className="player">
         {this.state.widget}

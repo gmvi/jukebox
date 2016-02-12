@@ -1,9 +1,5 @@
 .palette-container {
   padding: 0 40px;
-  width: 100%;
-  position: fixed;
-  left: 0;
-  bottom: 0;
   font-family: Roboto, arial, sans-serif;
   font-weight: 400;
 }
@@ -16,6 +12,7 @@
   background-color: lightblue;
   height: 432px;
   overflow: hidden;
+  margin-top: 10px;
 }
 
 .palette.collapsed {
