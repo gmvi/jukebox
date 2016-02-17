@@ -10,3 +10,7 @@
   height: 100%;
   padding-top: 50px;
 }
+
+.content .app {
+  position: relative;
+}

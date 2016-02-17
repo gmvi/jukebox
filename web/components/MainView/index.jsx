@@ -34,8 +34,8 @@ module.exports = React.createClass({
           My Queue
           <Playlist list={this.state.queue}
                     onRemove={this.onRemoveFromQueue} />
-          <Palette />
         </div>
+        <Palette />
       </div>
     );
   }

@@ -120,7 +120,7 @@ exports.create = function create(callback) {
     switch (err.type) {
       case 'peer-unavailable':
         var id = err.message.match(/peer (.*)\b/)[1];
-        peer.emit('peer-unavailable', id);
+        peer.emit('peer-unavailable', id, err);
         window.debug = window.debug || {};
         window.debug.err = err;
         return;
@@ -281,7 +281,7 @@ _.assign(exports.HostNode.prototype, {
       method: 'post',
     }
     if (hasCb) {
-      var thread = generatetoken(client.threads);
+      var thread = generateToken(client.threads);
       data.thread = thread;
       this.recordCallback(thread, function(err, res) {
         if (err) callback(err);
@@ -350,9 +350,13 @@ _.assign(exports.ClientNode.prototype, {
       off();
     };
     this.connection.once('open', openHandler);
-    var unavailable = function() {
-      callback(new Error('unavailable'));
-      off();
+    var unavailable = function(id, origErr) {
+      if (id == hostId) {
+        var err = new Error('unavailable');
+        err.origErr = origErr;
+        cb(err);
+        off();
+      }
     };
     this.peer.on('peer-unavailable', unavailable);
     // attach the main data handler
