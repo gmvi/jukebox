@@ -1,10 +1,10 @@
 {
-  "name": "Peertable",
+  "name": "Jukebox",
   "version": "0.1.0",
-  "author": "George Matter VI <george.matter.vi@gmail.com>",
+  "author": "George Matter <george.m@tter.me>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MadhATTER6/peertable"
+    "url": "https://github.com/MadhATTER6/jukebox"
   },
   "dependencies": {
     "body-parser": "1.15.x",

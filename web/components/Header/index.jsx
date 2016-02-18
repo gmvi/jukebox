@@ -11,7 +11,7 @@ module.exports = React.createClass({
   render: function(){
     return (
       <header className='Header'>
-        <span className="brand">Peertable</span>
+        <span className="brand">Jukebox</span>
         { this.props.title ?
             <span>/{this.props.title}</span> :
             <span />

@@ -166,14 +166,15 @@ var general = exports.general = Reflux.createStore({
     // };
   },
 
-  // updateHistory: function() {
-  //   history.pushState(
-  //     this.state,
-  //     "Peertable: "+this.state.name, // title
-  //     '/'+this.state.pathtoken // pathname
-  //   );
-  //   console.log('pushed state for', this.state.pathtoken);
-  // },
+   updateHistory: function() {
+     window.location = '/'+this.state.pathtoken
+//      history.pushState(
+//        this.state,
+//        "Jukebox: "+this.state.name, // title
+//        '/'+this.state.pathtoken // pathname
+//      );
+//      console.log('pushed state for', this.state.pathtoken);
+   },
 
   onCreateRoomFailed: function(err, res) {
     console.log('pretend tooltip');
@@ -186,7 +187,7 @@ var general = exports.general = Reflux.createStore({
       pathtoken: body.pathtoken,
       error: null,
     });
-    // this.updateHistory();
+    this.updateHistory();
   },
 
   onJoinRoomAsHostCompleted: function() {

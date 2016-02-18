@@ -1,4 +1,4 @@
-// peertable (peer-to-peer + turntable.fm)
+// jukebox [working title]
 // peer-to-peer party-playlisting
 
 // std lib
@@ -23,8 +23,11 @@ var defaultConfig = require('./default-config.json'),
 var shared = require('../shared'),
     MODE   = shared.MODE;
 
+// needs no introduction
+global.development = process.env.NODE_ENV !== 'production';
+
 // Parse command line arguments
-// the parity of commander.js coercion functions matters. If a coercion function
+// The parity of commander.js coercion functions matters. If a coercion function
 // has parity != 1, the default value is passed in as the second parameter.
 function unaryResolvePath(value) { return path.resolve(value); }
 commander
@@ -35,22 +38,27 @@ commander
     )
     .option(
         '-c, --config [path]',
-        'Set the config location [default /etc/peertable.conf.json]',
-        unaryResolvePath, '/etc/peertable.conf.json'
+        'Set the config location [default /etc/jukebox.conf.json]',
+        unaryResolvePath, '/etc/jukebox.conf.json'
     )
     .parse(process.argv);
 var cmdOpts = _.pick(commander, ['hostname', 'port']);
 
-// Load config, then apply defaults, then override with command line options
-var config = utils.loadConfig(commander.config);
-_.defaultsDeep(config, defaultConfig);
-global.config = _.assign(config, cmdOpts, function(value, other) {
-  // this check is needed because commander.hasOwnProperty returns true
-  // for unset options
+// Environment options. Only load them in production
+var envOpts = (global.development)?{}:{
+  hostname: process.env.HOSTNAME,
+  port: process.env.PORT,
+};
+
+// config <~ _.assign({}, defaults, config file, env vars, CLI opts);
+global.config = utils.loadConfig(commander.config);
+_.defaultsDeep(global.config, defaultConfig);
+if (global.development) _.assign(global.config, envOpts);
+_.assign(global.config, cmdOpts, function(value, other) {
+  // commander.hasOwnProperty returns true for unset options
   return _.isUndefined(other) ? value : other;
 });
 // automatic config and globals
-global.development = process.env.NODE_ENV !== 'production';
 global.config.host = (global.config.hostname||'')+':'+global.config.port;
 
 // Set up logging
@@ -60,8 +68,10 @@ winston.info('loading application logic')
 
 // Connect to database. Loading this module sets up the db connection.
 var models = require('./models');
+// If the --initdb flag was passed, initialize the database and exit
 if (commander.initdb) {
   models.initialize(function(err) {
+    // TODO: re-eval why this was necessary and add comments
     if (err) {
       console.log(err);
       setImmediate(() => {
