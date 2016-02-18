@@ -1,5 +1,6 @@
-var _    = require('lodash'),
-    Peer = require('peerjs');
+var _            = require('lodash'),
+    Peer         = require('peerjs'),
+    EventEmitter = require('eventemitter3');
 
 var Router = require('./router');
 var Responder = require('./responder');
@@ -30,27 +31,34 @@ var generateToken = function(notIn) {
 }
 
 var ClientRecord = function ClientRecord(id, secret, conn) {
+  EventEmitter.call(this);
   this.id = id;
   this.secret = secret;
   this.threads = {};
+  this.connections = {};
+  this.main = null;
   if (conn) {
-    this.connections = {[conn.peer]: conn};
-    this.connectionCount = 1;
-    this.main = conn.peer;
-  } else {
-    this.connections = {};
-    this.connectionCount = 0;
-    this.main = null;
+    this.add(conn, true);
   }
 }
-_.assign(ClientRecord.prototype, {
-  // adds a peerjs DataConnection to a client record, optionally making it the
-  // main connection
-  add: function(conn, isMain) {
+_.assign(ClientRecord.prototype, EventEmitter.prototype, {
+  // adds a peerjs DataConnection to a client record, optionally upgrading it
+  // to the primary connection
+  add: function(conn, isPrimary) {
     this.cleanUpConnections();
+    conn.on('data', (data) => {
+      console.log('got data:', data);
+      if (data.thread in this.threads) {
+        // this data is a response
+        var callback = this.threads[data.thread];
+        delete this.threads[data.thread];
+        callback(null, data);
+      } else {
+        this.emit('data', data);
+      }
+    });
     this.connections[conn.peer] = conn;
-    this.connectionCount++;
-    if (isMain || !_.has(this.connections, this.main)) {
+    if (isPrimary || !_.has(this.connections, this.main)) {
       this.main = conn.peer;
     }
   },
@@ -60,16 +68,17 @@ _.assign(ClientRecord.prototype, {
     if (!_.has(this.connections, peerId)) return;
     var conn = this.connections[peerId];
     delete this.connections[peerId];
-    this.connectionCount--;
     // if main isn't connected, clear it
     if (!_.has(this.connections, this.main)) {
       this.main = null;
       // assign a new main if possible
-      if (this.connectionCount != 0) {
-        this.main = Object.keys(this.connections)[0];
+      var connectionIds = Object.keys(this.connections);
+      if (connectionIds.length) {
+        this.main = connectionIds[0];
       }
     }
   },
+  // close events don't fire in firefox
   cleanUpConnections: function() {
     _.forEach(this.connections, (conn, id) => {
       if (!conn.open) {
@@ -78,28 +87,38 @@ _.assign(ClientRecord.prototype, {
       }
     });
   },
-  send: function(data) {
-    console.log('sending', data);
+  send: function(data, callback) {
+    this.cleanUpConnections();
     if (this.main === null || !_.has(this.connections, this.main)) {
-      throw new Error('client disconnected');
+      //TODO: should something happen?
+      return
     }
+    if (callback) {
+      var thread = generateToken(this.threads);
+      data.thread = thread;
+      this.recordCallback(thread, function(err, res) {
+        if (err) callback(err);
+        else callback(null, res);
+      });
+    }
+    console.log('sending data:', data);
     this.connections[this.main].send(data);
+  },
+  recordCallback: function(thread, callback) {
+    var timeout = setTimeout(() => {
+      delete this.threads[thread];
+      callback(new Error('timeout'));
+    }, THREAD_TIMEOUT);
+    this.threads[thread] = function(res) {
+      clearTimeout(timeout);
+      callback(null, res);
+    };
   },
 });
 
 // Notes:
-//   A thread is a chain of communication, such as get-post-admit or post-admit.
-//   When a get is issued, it must contain a thread token, and the receiving
-//   party must return a post.
-//   When a post is issued, it may contain a thread token. If it does, then the
-//   receiving party should (must?) return an admit.
-//   If a get or post fails to elicit a response before an established timeout,
-//   then the thread is broken, and a timeout handler will invoke the callback
-//   for the waiting party with an error
-// Methods:
-//   get: request data from a resource (a post should be returned)
-//   post: send data to a resource (may follow a get; an admit may be returned)
-//   admit: acknowledge a post (must follow a post)
+// Works similar to http methods. GET must have a response. POST may specify no
+// thread id, in which case it will not recieve a response.
 
 // creates a PeerJS Peer object
 exports.create = function create(callback) {
@@ -136,46 +155,43 @@ exports.create = function create(callback) {
 
 exports.HostNode = function HostNode(peer, clientSecrets) {
   this.peer = peer;
-  this.hostId = '0';
   this.hostSecondaries = {};
   this.clients = {
-    [this.hostId]: null
   };
-  _.forEach(clientSecrets, (secret, clientId) => {
-    this.clients[clientId] = new ClientRecord(clientId, secret);
-  });
   this.router = new Router();
   this.listening = false;
 
   // private method
   // clientId is a string, and must be a key of this.clients
   // conn is a PeerJS DataConnection
-  var hookUpClient = (clientId, conn) => {
-    conn.on('data', (data) => {
-      if (data.thread in this.clients[clientId].threads) {
-        // this data is a response
-        var callback = this.clients[clientId].threads[data.thread];
-        delete this.clients[clientId].threads[data.thread];
-        callback(err, data.body);
-      } else {
-        var req = data;
-        req.clientId = clientId;
-        var res = new Responder(req, function (data) {
-          conn.send(data);
-        });
-        this.router.handle(req, res, function () {
+  var hookUpClient = (client) => {
+    client.on('data', (data) => {
+      var req = data;
+      req.clientId = client.id;
+      var res = new Responder(req, function (data) {
+        if (req.thread) {
+          data.thread = req.thread;
+          client.send(data);
+        }
+      });
+      this.router.handle(req, res, function () {
+        if (req.thread) {
           res.sendStatus(404);
-        });
-      }
+        }
+      });
     });
   };
+  _.forEach(clientSecrets, (secret, clientId) => {
+    this.clients[clientId] = new ClientRecord(clientId, secret);
+    hookUpClient(this.clients[clientId]);
+  });
 
   this.peer.on('connection', (conn) => {
     // don't accept before listening
     if (!this.listening) {
       conn.close();
     }
-    console.log('new connection, requesting auth');
+    console.log('new connection');
     var auth = conn.metadata;
     // Accept three auth modes, in order: host, established client, new client
     if (this.acceptHostSecondary(auth)) {
@@ -187,8 +203,7 @@ exports.HostNode = function HostNode(peer, clientSecrets) {
       if (client !== undefined && client.secret === auth.secret) {
         console.log('accepting new connection from client', client.id);
         // record connection
-        client.add(conn, auth.main);
-        hookUpClient(client.id, conn);
+        client.add(conn);
       } else {
         console.log('rejecting established client');
         conn.send({
@@ -203,20 +218,30 @@ exports.HostNode = function HostNode(peer, clientSecrets) {
       // register new client
       var clientId = generateToken(this.clients);
       var secret = generateToken();
-      this.clients[clientId] = new ClientRecord(clientId, secret, conn);
-      hookUpClient(clientId, conn);
-      conn.on('open', function() {
-        console.log('sending auth');
-        conn.send({
+      var client = new ClientRecord(clientId, secret, conn);
+      this.clients[clientId] = client;
+      conn.on('open', () => {
+        console.log('new client, sending auth');
+        var data = {
           method: 'post',
           path: 'auth',
           body: {
             clientId: clientId,
             secret: secret,
           },
+        }
+        client.send(data, (err, res) => {
+          if (err) {
+            console.log('client failed to acknowelege credentials');
+            // clear these credentials, they didn't make it to the client
+            delete this.clients[clientId];
+          } else {
+            console.log('accepting new client');
+            hookUpClient(client);
+            this.handleNewClient(clientId, secret);
+          }
         });
       });
-      this.handleNewClient(clientId, secret);
     } else {
       console.log('rejecting new client');
       conn.send({
@@ -233,19 +258,6 @@ _.assign(exports.HostNode.prototype, {
     this.listening = true;
   },
 
-  // records a callback for the next event in a thread
-  // clientId must be a member of this.clients
-  recordCallback: function(clientId, thread, callback) {
-    var threads = this.clients[clientId].threads;
-    var timeout = setTimeout(function() {
-      delete threads[thread];
-      callback(new Error('timeout'));
-    }, THREAD_TIMEOUT);
-    threads[thread] = function(res) {
-      clearTimeout(timeout);
-      callback(null, res);
-    };
-  },
   acceptNewClient: noop,
   acceptHostSecondary: noop,
   handleNewClient: noop,
@@ -256,39 +268,27 @@ _.assign(exports.HostNode.prototype, {
       return;
     }
     var client = this.clients[clientId];
-    var thread = generateToken(client.threads);
     client.send({
       thread: thread,
       path: path,
       method: 'get',
-    });
-    this.recordCallback(thread, function(err, res) {
-      if (err) callback(err);
-      else callback(null, res);
-    });
+    }, callback);
   },
-  post: function(clientId, path, callback) {
+  // optional callback is function(err, res)
+  post: function(clientId, path, body, callback) {
     var hasCb = (callback != undefined);
     if (!_.has(this.clients, clientId)) {
       var msg = 'no client with that id';
       if (hasCb) callback(new Error(msg));
-      else throw new Error(msg);
       return;
     }
     var client = this.clients[clientId];
     var data = {
-      path: path,
       method: 'post',
+      path: path,
+      body: body,
     }
-    if (hasCb) {
-      var thread = generateToken(client.threads);
-      data.thread = thread;
-      this.recordCallback(thread, function(err, res) {
-        if (err) callback(err);
-        else callback(null, res);
-      });
-    }
-    client.send(data);
+    client.send(data, callback)
   },
   // notifications don't require callbacks
   postAll: function(path, body) {
@@ -296,8 +296,8 @@ _.assign(exports.HostNode.prototype, {
     _.forOwn(this.clients, function(client) {
       if (!client) return; // since host's clientId is registered in clients
       client.send({
-        path: path,
         method: 'post',
+        path: path,
         body: body,
       });
     });

@@ -29,7 +29,7 @@ module.exports = React.createClass({
   render: function() {
     return (
       <ul className="playlist">
-      { this.props.list.map(function(item) {
+      { this.props.list?this.props.list.map(item => {
           return <Track
             key={item._id}
             title={item.title} 
@@ -39,7 +39,7 @@ module.exports = React.createClass({
             iconFA={ this.props.onRemove?'remove':null }
             onClick={ this.makeRemoveHandler(item._id) }
           />;
-        }, this)
+        }):""
       }
       </ul>
     );

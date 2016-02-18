@@ -416,11 +416,11 @@ var playlist = exports.playlist = Reflux.createStore({
   },
 
   init: function() {
-    this.listenTo(queue, (hostQueue) => {
-      if (general.state.mode == MODE.HOST) {
+    if (general.state.mode == MODE.HOST) {
+      this.listenTo(queue, (hostQueue) => {
         this.onUpdate('0', hostQueue);
-      }
-    });
+      });
+    }
   },
 
   onCreateRoomCompleted: function() {
@@ -451,6 +451,7 @@ var playlist = exports.playlist = Reflux.createStore({
       this.state.queues[clientId] = queue;
       this.reconstructPlaylist();
       // reconstructPlaylist calls setState, which dumps and triggers
+      actions.playlist.updated();
     }
   },
 
@@ -481,14 +482,14 @@ var playlist = exports.playlist = Reflux.createStore({
 
 var playerStore = exports.player = Reflux.createStore({
   mixins: [stateMixin],
-  listenables: [actions.player],
+  listenables: [actions.general, actions.player],
 
   state: {
     playing: false,
     widget: null,
   },
 
-  init: function() {
+  _init: function() {
     if (playlist.state.current) {
       player.load(playlist.state.current, true);
     }
@@ -500,17 +501,33 @@ var playerStore = exports.player = Reflux.createStore({
     });
   },
 
+  init: function() {
+    if (general.state.mode === MODE.HOST) {
+      this._init();
+    }
+  },
+
+  onCreateRoomCompleted: function() {
+    this._init();
+  },
+
+  onJoinRoomAsHostCompleted: function() {
+    this._init();
+  },
+
   onNext: function() {
-    playlist.shift();
-    console.log(playlist.state);
-    var track = playlist.state.current;
-    console.log('new track:', track);
-    if (track) {
-      player.load(track);
-      console.log('setting player widget');
-      this.setState({
-        widget: player.widget,
-      });
+    if (general.state.mode === MODE.HOST) {
+      playlist.shift();
+      console.log(playlist.state);
+      var track = playlist.state.current;
+      console.log('new track:', track);
+      if (track) {
+        player.load(track);
+        console.log('setting player widget');
+        this.setState({
+          widget: player.widget,
+        });
+      }
     }
   },
 });

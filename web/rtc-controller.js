@@ -108,6 +108,7 @@ var initPrimaryHost = waitForPeer(function() {
 });
 
 var upgradeHost = function() {
+  console.log(stores.auth.clients);
   controller = new transport.HostNode(peer, stores.auth.clients);
   window.debug.controller = controller;
   controller.acceptHostSecondary = function(auth) {
@@ -148,8 +149,8 @@ var upgradeHost = function() {
   // actions.clients.otherProfileUpdate.listen(function (update) {
   //   controller.postAll('profiles', update);
   // });
-  actions.playlist.updated.listen(function (playlist) {
-    controller.postAll('playlist', playlist);
+  actions.playlist.updated.listen(function () {
+    controller.postAll('playlist', stores.playlist.getPublicState());
   });
   actions.playlist.consume.listen(function (clientId, trackId) {
     if (clientId != '0') {
@@ -172,12 +173,16 @@ var initClient = waitForPeer(function (auth) {
   // set up routing
   var router = controller.router;
   router.post('auth', function(req, res) {
+    console.log('got auth');
     actions.general.recordAuth(req.body);
+    res.sendStatus(200);
   });
   router.get('files/:id', function(req, res) {
     res.sendStatus(501);
   });
   router.post('playlist', function(req, res) {
+    console.log('post playlist');
+    console.log(req);
     actions.playlist.updated(req.body);
   });
   router.post('queue', function(req, res) {
@@ -191,13 +196,11 @@ var initClient = waitForPeer(function (auth) {
       console.log(err, err.origErr);
     } else {
       actions.general.joinRoomAsClient.completed();
-      controller.get('playlist', function(err, res) {
-        console.log('playlist response');
-        actions.playlist.updated(res.body);
-      });
       actions.queue.updated.listen(function(tracks) {
         controller.post('queue', tracks);
       });
+      console.log('setting timeout for initial send');
+      controller.post('queue', stores.queue.getPublicState());
     }
   });
 });
