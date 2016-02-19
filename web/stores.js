@@ -365,11 +365,18 @@ var queue = exports.queue = Reflux.createStore({
   onRemoveTrack: function(_id) {
     console.log('removing', _id);
     _.remove(this.state.tracks, function(value) {
-      return value._id === _id;
+      // value._id is a number, _id a string
+      return value._id == _id;
     });
     actions.queue.updated(this.getPublicState());
     this.dump();
     this.triggerState();
+  },
+
+  onUpdated: function(tracks) {
+    if (general.state.mode == MODE.HOST) {
+      actions.playlist.update('0', tracks);
+    }
   },
 
   onPop: function() {
@@ -386,8 +393,8 @@ var playlist = exports.playlist = Reflux.createStore({
   state: {
     clients: {},
     queues: {},
-    current: null,
     list: [],
+    current: null,
   },
 
   reconstructPlaylist: function() {
@@ -395,7 +402,7 @@ var playlist = exports.playlist = Reflux.createStore({
     var list = [];
     var exhausted = false;
     loop:
-    for (var i = 0; exhausted == false; i++) {
+    for (var i = 0; exhausted === false; i++) {
       exhausted = true; // default if no tracks found
       for (var j = 0; j < this.state.clients.length; j++) {
         // if client j has track in position i, add it to the list
@@ -420,6 +427,11 @@ var playlist = exports.playlist = Reflux.createStore({
       this.listenTo(queue, (hostQueue) => {
         this.onUpdate('0', hostQueue);
       });
+    } else if (general.state.mode == MODE.CLIENT) {
+      actions.queue.addTrack.listen(track => {
+        this.state.list.push(track);
+        this.triggerState();
+      });
     }
   },
 
@@ -427,6 +439,13 @@ var playlist = exports.playlist = Reflux.createStore({
     this.setState({
       queues: {'0':[]},
       clients: ['0'],
+    });
+  },
+
+  onJoinRoomAsClientCompleted: function() {
+    actions.queue.addTrack.listen(track => {
+      this.state.list.push(track);
+      this.triggerState();
     });
   },
 
@@ -447,6 +466,7 @@ var playlist = exports.playlist = Reflux.createStore({
         // clone each track before modifying id
         e = queue[i] = _.clone(e);
         e._id = clientId+'-'+e._id;
+        e._clientId = clientId;
       });
       this.state.queues[clientId] = queue;
       this.reconstructPlaylist();
@@ -463,16 +483,26 @@ var playlist = exports.playlist = Reflux.createStore({
 
   shift: function() {
     if (this.state.list.length == 0) {
-      this.state.current = null;
+      this.setState({current: null});
     } else {
-      var current = this.state.list[0];
-      var currentClient = this.state.clients[0];
-      this.state.current = current;
-      this.state.queues[currentClient].shift();
-      var id = current._id;
-      id = id.slice(id.indexOf('-')+1);
-      actions.playlist.consume(currentClient, id);
+      console.log('shifting');
+      var next = this.state.list[0];
+      var nextClient = next._clientId;
+      // fast-forward the clients ring to the next track's client
+      while (this.state.clients[0] !== nextClient) {
+        this.state.clients.push(this.state.clients.shift());
+      }
       this.state.clients.push(this.state.clients.shift());
+      // remove track from queue and tell the client
+      var queue = this.state.queues[nextClient];
+      console.log(queue);
+      queue.shift();
+      console.log(queue);
+      var id = next._id;
+      id = id.slice(id.indexOf('-')+1); // get the client-local id
+      actions.playlist.consume(nextClient, id);
+      // replace current and reconstruct list
+      this.state.current = next;
       this.reconstructPlaylist();
       actions.playlist.updated(this.getPublicState());
     }
@@ -518,18 +548,15 @@ var playerStore = exports.player = Reflux.createStore({
   onNext: function() {
     if (general.state.mode === MODE.HOST) {
       playlist.shift();
-      console.log(playlist.state);
       var track = playlist.state.current;
       console.log('new track:', track);
-      if (track) {
-        player.load(track);
-        console.log('setting player widget');
-        this.setState({
-          widget: player.widget,
-        });
-      }
+      player.load(track);
+      this.setState({
+        widget: player.widget,
+      });
     }
   },
 });
 
-//window.debug.stores = exports;
+window.debug = window.debug || {};
+window.debug.stores = exports;

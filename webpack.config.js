@@ -1,6 +1,7 @@
 var path = require('path');
 
-var _ = require('lodash');
+var _       = require('lodash'),
+    webpack = require('webpack');
 
 var jsLoader = {
   test: /\.js$/,
@@ -24,6 +25,8 @@ module.exports = {
     path: 'assets',
     filename: 'bundle.js',
   },
+  plugins: [
+  ],
   module: {
     loaders: [
       jsLoader,
@@ -43,3 +46,13 @@ module.exports = {
   },
   devtool: 'cheap-module-inline-source-map',
 };
+
+if (process.env.NODE_ENV === 'production') {
+  module.exports.plugins.push(
+    new webpack.optimize.UglifyJsPlugin({
+      compress: {
+        warnings: false,
+      },
+    })
+  );
+}
