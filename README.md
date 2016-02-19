@@ -12,11 +12,12 @@ primary goals of the project, but is not currently in development.
   signalmaster, and search api
 - users can have multiple tabs/windows open seamlessly
 - soundcloud and youtube sources
-- rooms will only have 'round-robin' mode: users take turns providing tracks for the playlist
+- rooms will only have 'round-robin' mode: users take turns providing tracks for
+  the playlist
 
 ### Feature ideas
 - users can load files from the local filesystem and stream them to host
-- option to turn varisous sources on/off. This blocks implementation of the
-  spotify service, which can only be turned on on a desktop.
+- option to turn various sources on/off. This blocks implementation of spotify
+  as a source, which can only work on a desktop.
 - persistant personal playlists like plug.dj
 - Native phone apps
