@@ -189,7 +189,7 @@ _.extend(YouTubePlugin.prototype, EventEmitter.prototype, {
     if (e.data == YT.PlayerState.ENDED) {
       this.emit('finish');
     } else {
-      console.log('player state change', e);
+      // console.log('player state change', e);
     }
   },
   load: function(track, autoplay) {
