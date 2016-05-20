@@ -1,4 +1,4 @@
-package main
+package partycast
 
 import (
 	"database/sql"
@@ -155,7 +155,7 @@ func buildAPI(api *mux.Router) {
 		})
 }
 
-func main() {
+func Main() {
 	// attach routes
 	r := mux.NewRouter()
 	// /api

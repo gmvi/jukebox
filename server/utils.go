@@ -1,4 +1,4 @@
-package main
+package partycast
 
 import (
 	"encoding/json"
@@ -8,17 +8,15 @@ import (
 )
 
 type Config struct {
-	Hostname     string                `json:"hostname"`
-	Port         uint16                `json:"port"`
-	Host         string                `json:"-"`
-	Database     string                `json:"database"`
-	CookieSecret string                `json:"cookie-secret"`
-	Auth         map[string]ConfigAuth `json:"auth"`
-}
-
-type ConfigAuth struct {
-	Key    string `json:"key"`
-	Secret string `json:"secret"`
+	Hostname     string `json:"hostname"`
+	Port         uint16 `json:"port"`
+	Host         string `json:"-"`
+	Database     string `json:"database"`
+	CookieSecret string `json:"cookie-secret"`
+	Auth         map[string]struct {
+		Key    string `json:"key"`
+		Secret string `json:"secret"`
+	} `json:"auth"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
