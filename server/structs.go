@@ -1,7 +1,8 @@
-package partycast
+package server
 
 import (
 	_ "encoding/gob"
+	"time"
 )
 
 func init() {
@@ -16,8 +17,18 @@ type Auth struct {
 }
 
 type Profile struct {
-	ID   int    `json:"pid"`
-	Name string `json:"name"`
+	ID    int    `json:"pid"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type ProviderAuth struct {
+	Provider          string
+	UserID            string
+	AccessToken       string
+	AccessTokenSecret string
+	RefreshToken      string
+	ExpiresAt         time.Time
 }
 
 type Role struct {

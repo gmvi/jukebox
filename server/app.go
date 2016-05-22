@@ -1,4 +1,4 @@
-package partycast
+package server
 
 import (
 	"database/sql"
@@ -14,12 +14,13 @@ import (
 	_ "github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	_ "github.com/srinathgs/mysqlstore"
+
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/facebook"
 	"github.com/markbates/goth/providers/gplus"
 	"github.com/markbates/goth/providers/twitter"
-	_ "github.com/srinathgs/mysqlstore"
 )
 
 const (
@@ -48,6 +49,9 @@ func init() {
 	if *hostname != "" {
 		config.Hostname = *hostname
 	}
+	if config.Hostname == "" {
+		config.Hostname = "localhost"
+	}
 	port := flag.Uint("port", 0, "listen on the specified port")
 	if *port != 0 {
 		config.Port = uint16(*port)
@@ -71,27 +75,27 @@ func init() {
 
 	// Auth Providers
 	providers := make([]goth.Provider, 0)
-	root := fmt.Sprintf("%s://%s/", "http", config.Host)
+	cb := fmt.Sprintf("%s://%s/auth/callback?provider=", "http", config.Host)
 	if auth, ok := config.Auth["twitter"]; ok {
-		providers = append(providers, twitter.New(auth.Key, auth.Secret,
-			root+"auth/twitter/callback"))
+		providers = append(providers,
+			twitter.New(auth.Key, auth.Secret, cb+"twitter"))
 	}
 	if auth, ok := config.Auth["facebook"]; ok {
-		providers = append(providers, facebook.New(auth.Key, auth.Secret,
-			root+"auth/facebook/callback"))
+		providers = append(providers,
+			facebook.New(auth.Key, auth.Secret, cb+"facebook"))
 	}
 	if auth, ok := config.Auth["gplus"]; ok {
-		providers = append(providers, gplus.New(auth.Key, auth.Secret,
-			root+"auth/gplus/callback"))
+		providers = append(providers,
+			gplus.New(auth.Key, auth.Secret, cb+"gplus"))
 	}
 	goth.UseProviders(providers...)
 }
 
 func buildAuth(auth *mux.Router) {
-	auth.Path("/{provider}").
+	auth.Path("/").
 		Methods("GET").
 		HandlerFunc(gothic.BeginAuthHandler)
-	auth.Path("/{provider}/callback").
+	auth.Path("/callback").
 		Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			user, err := gothic.CompleteUserAuth(w, req)
@@ -99,8 +103,7 @@ func buildAuth(auth *mux.Router) {
 				fmt.Fprintln(w, err)
 				return
 			}
-			_ = user
-			// TODO
+			fmt.Fprintln(w, user)
 		})
 }
 
@@ -155,12 +158,14 @@ func buildAPI(api *mux.Router) {
 		})
 }
 
-func Main() {
+func Run() {
 	// attach routes
-	r := mux.NewRouter()
+	r := mux.NewRouter().StrictSlash(true)
 	// /api
 	api := r.PathPrefix("/api").Subrouter()
 	buildAPI(api)
+	auth := r.PathPrefix("/auth").Subrouter()
+	buildAuth(auth)
 
 	// mix in global middleware
 	app := negroni.Classic()

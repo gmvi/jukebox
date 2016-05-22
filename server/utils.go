@@ -1,4 +1,4 @@
-package partycast
+package server
 
 import (
 	"encoding/json"
