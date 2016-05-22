@@ -3,5 +3,5 @@ package main
 import "partycast/server"
 
 func main() {
-	server.Run()
+	partycast.Run()
 }

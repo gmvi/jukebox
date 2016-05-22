@@ -1,4 +1,4 @@
-package server
+package partycast
 
 import (
 	"database/sql"
@@ -11,10 +11,11 @@ import (
 
 	"github.com/codegangsta/negroni"
 	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/pilu/fresh/runner/runnerutils"
 	_ "github.com/srinathgs/mysqlstore"
+	_ "golang.org/x/net/context"
 
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -33,7 +34,11 @@ var (
 	config     *Config
 	store      sessions.Store
 	db         *sql.DB
+
+	contexts = NewContextMap()
 )
+
+// setup
 
 func init() {
 	// command line flags and config
@@ -42,7 +47,7 @@ func init() {
 	var err error
 	config, err = LoadConfig(configPath)
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		fmt.Printf("Fatal: Failed to load config. %s\n", err)
 		os.Exit(1)
 	}
 	hostname := flag.String("host", "", "listen on the specified hostname")
@@ -58,7 +63,7 @@ func init() {
 	}
 	config.Host = fmt.Sprintf("%s:%d", config.Hostname, config.Port)
 
-	// Sessions
+	// Session Store
 	store = sessions.NewCookieStore([]byte(config.CookieSecret))
 
 	// Database
@@ -73,29 +78,63 @@ func init() {
 		os.Exit(1)
 	}
 
-	// Auth Providers
+	// Configure goth/gothic
+	gothic.Store = store
+	gothic.GetProviderName = func(req *http.Request) (string, error) {
+		vars := mux.Vars(req)
+		return vars["provider"], nil
+	}
+	loadProviders()
+}
+
+func loadProviders() {
+	// Auth Provider Config and loading
 	providers := make([]goth.Provider, 0)
-	cb := fmt.Sprintf("%s://%s/auth/callback?provider=", "http", config.Host)
+	endpoint := fmt.Sprintf("%s://%s/auth/", "http", config.Host)
 	if auth, ok := config.Auth["twitter"]; ok {
 		providers = append(providers,
-			twitter.New(auth.Key, auth.Secret, cb+"twitter"))
+			twitter.NewAuthenticate(auth.Key, auth.Secret,
+				endpoint+"twitter/callback"))
 	}
 	if auth, ok := config.Auth["facebook"]; ok {
 		providers = append(providers,
-			facebook.New(auth.Key, auth.Secret, cb+"facebook"))
+			facebook.New(auth.Key, auth.Secret, endpoint+"/facebook/callback"))
 	}
 	if auth, ok := config.Auth["gplus"]; ok {
 		providers = append(providers,
-			gplus.New(auth.Key, auth.Secret, cb+"gplus"))
+			gplus.New(auth.Key, auth.Secret, endpoint+"gplus/callback"))
 	}
 	goth.UseProviders(providers...)
 }
 
-func buildAuth(auth *mux.Router) {
-	auth.Path("/").
+// Middleware
+
+// put things in the context
+func contextualize(w http.ResponseWriter, req *http.Request,
+	next http.HandlerFunc) {
+
+	ctx := contexts.Get(req)
+	contexts.Put(req, ctx)
+	next(w, req)
+}
+
+func runnerErrors(w http.ResponseWriter, req *http.Request,
+	next http.HandlerFunc) {
+
+	if runnerutils.HasErrors() {
+		runnerutils.RenderError(w)
+	} else {
+		next(w, req)
+	}
+}
+
+// Routes
+
+func buildAuthRoutes(auth *mux.Router) {
+	auth.Path("/{provider}").
 		Methods("GET").
 		HandlerFunc(gothic.BeginAuthHandler)
-	auth.Path("/callback").
+	auth.Path("/{provider}/callback").
 		Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			user, err := gothic.CompleteUserAuth(w, req)
@@ -107,7 +146,7 @@ func buildAuth(auth *mux.Router) {
 		})
 }
 
-func buildAPI(api *mux.Router) {
+func buildAPIRoutes(api *mux.Router) {
 	// /api/version
 	api.Path("/version").
 		Methods("GET").
@@ -159,16 +198,23 @@ func buildAPI(api *mux.Router) {
 }
 
 func Run() {
-	// attach routes
+	// global middleware
+	app := negroni.Classic()
+	if os.Getenv("DEV_RUNNER") == "1" {
+		fmt.Println("INFO: running with reloader")
+		app.UseFunc(runnerErrors)
+	}
+	// app.UseFunc(contextualize)
+
+	// build routes
 	r := mux.NewRouter().StrictSlash(true)
 	// /api
 	api := r.PathPrefix("/api").Subrouter()
-	buildAPI(api)
+	buildAPIRoutes(api)
+	// /auth
 	auth := r.PathPrefix("/auth").Subrouter()
-	buildAuth(auth)
-
-	// mix in global middleware
-	app := negroni.Classic()
+	buildAuthRoutes(auth)
+	// attach
 	app.UseHandler(r)
 
 	// listen

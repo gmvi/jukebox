@@ -1,4 +1,4 @@
-package server
+package partycast
 
 import (
 	_ "encoding/gob"
