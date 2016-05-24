@@ -7,6 +7,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+var (
+	contexts = NewContextMap()
+)
+
 type ContextMap struct {
 	lock     sync.Mutex
 	contexts map[*http.Request]context.Context

@@ -1,21 +1,16 @@
 package partycast
 
 import (
-	"database/sql"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
+	_ "strconv"
 
 	"github.com/codegangsta/negroni"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/pilu/fresh/runner/runnerutils"
+	_ "github.com/pilu/fresh/runner/runnerutils"
 	_ "github.com/srinathgs/mysqlstore"
-	_ "golang.org/x/net/context"
 
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -25,112 +20,106 @@ import (
 )
 
 const (
-	version           = "0.0.1"
-	defaultConfigPath = "/etc/partycast.json"
+	version = "0.0.1"
 )
 
 var (
-	configPath string
-	config     *Config
-	store      sessions.Store
-	db         *sql.DB
-
-	contexts = NewContextMap()
+	config *Config
+	app    *negroni.Negroni
+	store  sessions.Store
+	router *mux.Router
 )
 
-// setup
-
-func init() {
-	// command line flags and config
-	flag.StringVar(&configPath, "config", defaultConfigPath,
-		"Location of the config file.")
+func initialize() {
 	var err error
-	config, err = LoadConfig(configPath)
+	config, err = loadConfig()
 	if err != nil {
-		fmt.Printf("Fatal: Failed to load config. %s\n", err)
+		fmt.Printf("Fatal: failed to load Config\n%s\n", err)
 		os.Exit(1)
 	}
-	hostname := flag.String("host", "", "listen on the specified hostname")
-	if *hostname != "" {
-		config.Hostname = *hostname
-	}
-	if config.Hostname == "" {
-		config.Hostname = "localhost"
-	}
-	port := flag.Uint("port", 0, "listen on the specified port")
-	if *port != 0 {
-		config.Port = uint16(*port)
-	}
-	config.Host = fmt.Sprintf("%s:%d", config.Hostname, config.Port)
+
+	// app setup
+	app = negroni.Classic()
+	router = mux.NewRouter().StrictSlash(true)
+	app.UseHandler(router)
+
+	loadMiddleware()
 
 	// Session Store
 	store = sessions.NewCookieStore([]byte(config.CookieSecret))
 
+	// Configure authentication providers
+	loadAuth()
+
+	api := router.PathPrefix("/api").Subrouter()
+	loadAPI(api)
+
 	// Database
-	db, err = sql.Open("mysql", config.Database)
+	err = ConnectDatabase()
 	if err != nil {
 		fmt.Printf("Fatal: database connection failed\n%s\n", err)
 		os.Exit(1)
 	}
-	err = db.Ping() // fail early
-	if err != nil {
-		fmt.Printf("Fatal: initial ping failed\n%s\n", err)
-		os.Exit(1)
-	}
+}
 
-	// Configure goth/gothic
+func loadMiddleware() {
+	// put things in context
+	// app.UseFunc(func(w http.ResponseWriter, req *http.Request,
+	// 	next http.HandlerFunc) {
+
+	// 	ctx := contexts.Get(req)
+	// 	contexts.Put(req, ctx)
+	// 	next(w, req)
+	// })
+
+	// if os.Getenv("DEV_RUNNER") == "1" {
+	// 	fmt.Println("INFO: running with reloader")
+	// 	app.UseFunc(func(w http.ResponseWriter, req *http.Request,
+	// 		next http.HandlerFunc) {
+	// 		if runnerutils.HasErrors() {
+	// 			runnerutils.RenderError(w)
+	// 		} else {
+	// 			next(w, req)
+	// 		}
+	// 	})
+	// }
+}
+
+type providerFunc func(string, string, string) goth.Provider
+
+var providerFuncs = map[string]providerFunc{
+	"twitter": func(k, s, c string) goth.Provider {
+		return twitter.NewAuthenticate(k, s, c)
+	},
+	"facebook": func(k, s, c string) goth.Provider {
+		return facebook.New(k, s, c)
+	},
+	"gplus": func(k, s, c string) goth.Provider {
+		return gplus.New(k, s, c)
+	},
+}
+
+func loadAuth() {
+	// auth provider config
+	providers := make([]goth.Provider, 0)
+	cbFmt := fmt.Sprintf("%s://%s/auth/%%s/callback", "http", config.Host)
+	for provider, New := range providerFuncs {
+		if auth, ok := config.Auth[provider]; ok {
+			cb := fmt.Sprintf(cbFmt, provider)
+			providers = append(providers, New(auth.Key, auth.Secret, cb))
+		}
+	}
+	goth.UseProviders(providers...)
+
+	// settings
 	gothic.Store = store
 	gothic.GetProviderName = func(req *http.Request) (string, error) {
 		vars := mux.Vars(req)
 		return vars["provider"], nil
 	}
-	loadProviders()
-}
 
-func loadProviders() {
-	// Auth Provider Config and loading
-	providers := make([]goth.Provider, 0)
-	endpoint := fmt.Sprintf("%s://%s/auth/", "http", config.Host)
-	if auth, ok := config.Auth["twitter"]; ok {
-		providers = append(providers,
-			twitter.NewAuthenticate(auth.Key, auth.Secret,
-				endpoint+"twitter/callback"))
-	}
-	if auth, ok := config.Auth["facebook"]; ok {
-		providers = append(providers,
-			facebook.New(auth.Key, auth.Secret, endpoint+"/facebook/callback"))
-	}
-	if auth, ok := config.Auth["gplus"]; ok {
-		providers = append(providers,
-			gplus.New(auth.Key, auth.Secret, endpoint+"gplus/callback"))
-	}
-	goth.UseProviders(providers...)
-}
-
-// Middleware
-
-// put things in the context
-func contextualize(w http.ResponseWriter, req *http.Request,
-	next http.HandlerFunc) {
-
-	ctx := contexts.Get(req)
-	contexts.Put(req, ctx)
-	next(w, req)
-}
-
-func runnerErrors(w http.ResponseWriter, req *http.Request,
-	next http.HandlerFunc) {
-
-	if runnerutils.HasErrors() {
-		runnerutils.RenderError(w)
-	} else {
-		next(w, req)
-	}
-}
-
-// Routes
-
-func buildAuthRoutes(auth *mux.Router) {
+	// auth routes
+	auth := router.PathPrefix("/auth").Subrouter()
 	auth.Path("/{provider}").
 		Methods("GET").
 		HandlerFunc(gothic.BeginAuthHandler)
@@ -146,78 +135,8 @@ func buildAuthRoutes(auth *mux.Router) {
 		})
 }
 
-func buildAPIRoutes(api *mux.Router) {
-	// /api/version
-	api.Path("/version").
-		Methods("GET").
-		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, version)
-		})
-	// /api/auth
-	api.Path("/auth").
-		Methods("GET", "POST").
-		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			session, err := store.Get(req, "")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			err = req.ParseForm()
-			if err != nil {
-				// what do?
-			}
-			uid, _ := session.Values["user"].(int)
-			switch req.Method {
-			case "GET":
-				data, _ := json.Marshal(map[string]int{"uid": uid})
-				w.Write(data)
-			case "POST":
-				uidval := req.FormValue("uid")
-				uid, err := strconv.Atoi(uidval)
-				if err != nil {
-					w.WriteHeader(http.StatusBadRequest)
-					return
-				}
-				session.Values["user"] = uid
-				session.Save(req, w)
-				// save before writing to the body
-			}
-		})
-	// /api/profile
-	api.Path("/profile").
-		Methods("GET", "PATCH").
-		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			switch req.Method {
-			case "GET":
-				fmt.Fprintf(w, "")
-			case "PATCH":
-				fmt.Fprintf(w, "")
-			}
-		})
-}
-
 func Run() {
-	// global middleware
-	app := negroni.Classic()
-	if os.Getenv("DEV_RUNNER") == "1" {
-		fmt.Println("INFO: running with reloader")
-		app.UseFunc(runnerErrors)
-	}
-	// app.UseFunc(contextualize)
-
-	// build routes
-	r := mux.NewRouter().StrictSlash(true)
-	// /api
-	api := r.PathPrefix("/api").Subrouter()
-	buildAPIRoutes(api)
-	// /auth
-	auth := r.PathPrefix("/auth").Subrouter()
-	buildAuthRoutes(auth)
-	// attach
-	app.UseHandler(r)
-
-	// listen
+	initialize()
 	addr := fmt.Sprintf("%s:%d", config.Hostname, config.Port)
 	err := http.ListenAndServe(addr, app)
 	if err != nil {
