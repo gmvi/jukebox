@@ -18,7 +18,7 @@ type node struct {
 
 func signalServer(ws *websocket.Conn) {
 	req := ws.Request()
-	session, err := store.Get(req, "")
+	session, err := store.Get(req, "session")
 	if err != nil {
 		ws.Close()
 		fmt.Printf("Error: error retrieving session data: %s\n", err)

@@ -20,14 +20,13 @@ func loadAPI(r *mux.Router) {
 	r.Path("/auth").
 		Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			session, err := store.Get(req, "")
+			session, err := store.Get(req, "session")
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				panic(err)
 			}
 			err = req.ParseForm()
 			if err != nil {
-				// what do?
+				panic(err)
 			}
 			uid, _ := session.Values["user"].(int)
 			// switch req.Method {
