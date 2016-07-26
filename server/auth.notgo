@@ -1,0 +1,104 @@
+package jukebox
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/facebook"
+	"github.com/markbates/goth/providers/gplus"
+	"github.com/markbates/goth/providers/twitter"
+)
+
+// Go doesn't have function polymorphism so we wrap Provider constructors.
+type providerFunc func(string, string, string) goth.Provider
+
+var providerFuncs = map[string]providerFunc{
+	"twitter": func(key, secret, callback string) goth.Provider {
+		return twitter.NewAuthenticate(key, secret, callback)
+	},
+	"facebook": func(key, secret, callback string) goth.Provider {
+		return facebook.New(key, secret, callback)
+	},
+	"gplus": func(key, secret, callback string) goth.Provider {
+		return gplus.New(key, secret, callback)
+	},
+}
+
+func loadAuth() {
+	// auth provider config
+	providers := make([]goth.Provider, 0)
+	cbFmt := fmt.Sprintf("%s://%s/auth/%%s/callback", "http", config.Host)
+	for provider, New := range providerFuncs {
+		if auth, ok := config.Auth[provider]; ok {
+			cb := fmt.Sprintf(cbFmt, provider)
+			providers = append(providers, New(auth.Key, auth.Secret, cb))
+		}
+	}
+	goth.UseProviders(providers...)
+
+	// settings
+	gothic.Store = store // store declared in app.go
+	gothic.GetProviderName = func(req *http.Request) (string, error) {
+		vars := mux.Vars(req)
+		return vars["provider"], nil
+	}
+}
+
+func loadAuthRoutes(r *mux.Router) {
+	r.Path("/").
+		Methods("GET").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			session, err := store.Get(req, SESSION_NAME)
+			_ = session
+			throw(err)
+			switch req.Method {
+			case "GET":
+			}
+		})
+	// auth routes
+	r.Path("/{provider}").
+		Methods("GET").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			session, err := store.Get(req, SESSION_NAME)
+			throw(err)
+			profile := getProfile(session)
+			if profile == nil || profile.Guest {
+				gothic.BeginAuthHandler(w, req)
+			} else {
+				redirectContinue(w, req)
+			}
+		})
+	r.Path("/{provider}/callback").
+		Methods("GET").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			user, err := gothic.CompleteUserAuth(w, req)
+			throw(err)
+			session, err := store.Get(req, SESSION_NAME)
+			throw(err)
+			profile, err := lookupProfile(user.Email)
+			throw(err)
+			if profile == nil {
+				profile = getProfile(session)
+				if profile == nil {
+					profile = &Profile{
+						Name:  user.Name,
+						Email: user.Email,
+					}
+					err = profile.Save()
+					throw(err)
+					session.Values["profile"] = profile
+					session.Save(req, w)
+				}
+			}
+			auth := &Auth{
+				Provider:    user.Provider,
+				ProviderUID: user.UserID,
+				ProfileID:   profile.ID,
+			}
+			err = auth.Insert()
+			throw(err)
+		})
+}
