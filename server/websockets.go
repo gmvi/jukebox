@@ -1,4 +1,4 @@
-package partycast
+package jukebox
 
 import (
 	"fmt"

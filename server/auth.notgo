@@ -1,4 +1,4 @@
-package partycast
+package jukebox
 
 import (
 	"fmt"
@@ -40,57 +40,65 @@ func loadAuth() {
 	goth.UseProviders(providers...)
 
 	// settings
-	gothic.Store = store
+	gothic.Store = store // store declared in app.go
 	gothic.GetProviderName = func(req *http.Request) (string, error) {
 		vars := mux.Vars(req)
 		return vars["provider"], nil
 	}
+}
 
-	// auth routes
-	auth := router.PathPrefix("/auth").Subrouter()
-	auth.Path("/{provider}").
+func loadAuthRoutes(r *mux.Router) {
+	r.Path("/").
 		Methods("GET").
-		HandlerFunc(gothic.BeginAuthHandler)
-	auth.Path("/{provider}/callback").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			session, err := store.Get(req, SESSION_NAME)
+			_ = session
+			throw(err)
+			switch req.Method {
+			case "GET":
+			}
+		})
+	// auth routes
+	r.Path("/{provider}").
+		Methods("GET").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			session, err := store.Get(req, SESSION_NAME)
+			throw(err)
+			profile := getProfile(session)
+			if profile == nil || profile.Guest {
+				gothic.BeginAuthHandler(w, req)
+			} else {
+				redirectContinue(w, req)
+			}
+		})
+	r.Path("/{provider}/callback").
 		Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			user, err := gothic.CompleteUserAuth(w, req)
-			if err != nil {
-				panic(err)
-			}
-			session, err := store.Get(req, "session")
-			if err != nil {
-				panic(err)
-			}
-			val := session.Values["profile"]
-			var profile *Profile
-			var ok bool
-			if profile, ok = val.(*Profile); !ok {
-				profile, err = lookupProfile(user.Email)
-				if err != nil {
-					panic(err)
-				}
+			throw(err)
+			session, err := store.Get(req, SESSION_NAME)
+			throw(err)
+			profile, err := lookupProfile(user.Email)
+			throw(err)
+			if profile == nil {
+				profile = getProfile(session)
 				if profile == nil {
-					profile = &Profile{}
-					profile.Name = user.Name
-					profile.Email = user.Email
-					err = insertProfile(profile)
-					if err != nil {
-						panic(err)
+					profile = &Profile{
+						Name:  user.Name,
+						Email: user.Email,
 					}
+					err = profile.Save()
+					throw(err)
+					session.Values["profile"] = profile
+					session.Save(req, w)
 				}
-				// if we didn't get profile from session, save it
-				session.Values["profile"] = profile
-				session.Save(req, w)
 			}
 			auth := &Auth{
 				Provider:    user.Provider,
 				ProviderUID: user.UserID,
 				ProfileID:   profile.ID,
 			}
-			err = insertAuth(auth)
-			if err != nil {
-				panic(err)
-			}
+			err = auth.Insert()
+			throw(err)
 		})
 }

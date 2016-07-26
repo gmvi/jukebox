@@ -1,4 +1,4 @@
-package partycast
+package jukebox
 
 import (
 	"database/sql"
@@ -6,6 +6,10 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+)
+
+const (
+	DEBUG = true
 )
 
 var (
@@ -34,17 +38,21 @@ func ConnectDatabase() error {
 		}
 	}
 	tx, _ := db.Begin()
-	tx.Exec(`DROP TABLE role`)
-	tx.Exec(`DROP TABLE room`)
-	tx.Exec(`DROP TABLE auth`)
-	tx.Exec(`DROP TABLE profile`)
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS profile (
+	if DEBUG {
+		tx.Exec(`DROP TABLE role`)
+		tx.Exec(`DROP TABLE room`)
+		tx.Exec(`DROP TABLE auth`)
+		tx.Exec(`DROP TABLE profile`)
+	}
+	_, err = tx.Exec(`CREATE TABLE profile (
 		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
 		name varchar(64) NOT NULL,
 		email varchar(64) NOT NULL UNIQUE
 	)`)
 	handleErr(err)
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS auth (
+	_, err = tx.Exec(`ALTER TABLE profile AUTO_INCREMENT=1`)
+	handleErr(err)
+	_, err = tx.Exec(`CREATE TABLE auth (
 		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
 		provider varchar(16) NOT NULL,
 		uid varchar(64) NOT NULL,
@@ -54,23 +62,31 @@ func ConnectDatabase() error {
 		CONSTRAINT single_link UNIQUE (provider, pid)
 	)`)
 	handleErr(err)
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS room (
+	_, err = tx.Exec(`ALTER TABLE auth AUTO_INCREMENT=1`)
+	handleErr(err)
+	_, err = tx.Exec(`CREATE TABLE room (
 		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
 		name varchar(128)
 	)`)
+	_, err = tx.Exec(`ALTER TABLE room AUTO_INCREMENT=1`)
 	handleErr(err)
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS role (
+	handleErr(err)
+	_, err = tx.Exec(`CREATE TABLE role (
 		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
 		rid int,
 		type varchar(16) NOT NULL,
 		FOREIGN KEY (rid) REFERENCES room(id)
 	)`)
 	handleErr(err)
+	_, err = tx.Exec(`ALTER TABLE role AUTO_INCREMENT=1`)
+	handleErr(err)
 	err = tx.Commit()
 	handleErr(err)
 
 	return nil
 }
+
+// Auth Table
 
 type Auth struct {
 	ID          int64  `db:"id"`
@@ -91,21 +107,29 @@ func lookupAuth(provider, uid string) (*Auth, error) {
 	}
 }
 
-func insertAuth(a *Auth) error {
+func NewAuth(provider, providerUID string, profileID int64) (*Auth, error) {
+	a := &Auth{}
 	result, err := db.NamedExec("INSERT INTO auth (provider, uid, pid) VALUES (:provider, :uid, :pid)", a)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	a.ID, err = result.LastInsertId()
+	return a, err
+}
+
+func (a *Auth) Remove() error {
+	if a.ID == 0 {
+		return nil
+	}
+	_, err := db.NamedExec("DELETE FROM auth WHERE id=:id", a)
+	a.ID = 0
 	return err
 }
 
-func removeAuth(a *Auth) error {
-	_, err := db.NamedExec("DELETE FROM auth WHERE id=:id", a)
-	return err
-}
+// Profile Table
 
 type Profile struct {
+	Guest bool   `db:"-", json:"-"`
 	ID    int64  `db:"id", json:"pid"`
 	Name  string `db:"name", json:"name"`
 	Email string `db:"email", json:"email"`
@@ -123,19 +147,39 @@ func lookupProfile(email string) (*Profile, error) {
 	}
 }
 
-func insertProfile(p *Profile) error {
-	result, err := db.NamedExec("INSERT INTO profile (name, email) VALUES (:name, :email)", p)
+func (p *Profile) Save() error {
+	if p.ID == 0 {
+		result, err := db.NamedExec("INSERT INTO profile (name, email) VALUES (:name, :email)", p)
+		if err != nil {
+			return err
+		}
+		p.ID, err = result.LastInsertId()
+		return err
+	} else {
+		_, err := db.NamedExec("UPDATE profile SET name=:name, email=:email WHERE id=:id", p)
+		return err
+	}
+}
+
+func (p *Profile) Remove() error {
+	tx, _ := db.Beginx()
+	//_, err := tx.NamedExec("REMOVE FROM")
+	_, err := tx.NamedExec("REMOVE FROM profile WHERE id=:id", p)
 	if err != nil {
 		return err
 	}
-	p.ID, err = result.LastInsertId()
-	return err
+	return tx.Commit()
 }
 
-func updateProfile(p *Profile) error {
-	_, err := db.NamedExec("UPDATE profile SET name=:name, email=:email WHERE id=:id", p)
-	return err
+// Room Table
+
+type Room struct {
+	ID     int64  `json:"rid", db:"id"`
+	Name   string `json:"name", db:"name"`
+	Admins []Role `json:"admins", db:"-"`
 }
+
+// Role Table
 
 type Role struct {
 	ID        int64  `json:"-", db:"id"`
@@ -147,9 +191,3 @@ type Role struct {
 const (
 	RoleAdmin = "admin"
 )
-
-type Room struct {
-	ID     int64  `json:"rid", db:"id"`
-	Name   string `json:"name", db:"name"`
-	Admins []Role `json:"admins", db:"-"`
-}

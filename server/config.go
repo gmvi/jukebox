@@ -1,4 +1,4 @@
-package partycast
+package jukebox
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ const (
 type Config struct {
 	Hostname     string `json:"hostname"`
 	Port         uint   `json:"port"`
-	Host         string `json:"-"`
+	Host         string `json:"-"` // generated from the above
 	Database     string `json:"database"`
 	CookieSecret string `json:"cookie-secret"`
 	Auth         map[string]struct {
@@ -25,26 +25,42 @@ type Config struct {
 
 var loadConfig = func() (*Config, error) {
 	var err error
-	var configPath string
 	// load config from file
-	flag.StringVar(&configPath, "config", defaultConfigPath,
+	configPath := flag.String("config", defaultConfigPath,
 		"Location of the config file.")
-	config := &Config{}
-	configBytes, err := ioutil.ReadFile(configPath)
+	// define flags
+	hostname := flag.String("hostname", "",
+		"Listen on the specified hostname.")
+	port := flag.Uint("port", 0,
+		"listen on the specified port")
+	host := flag.String("host", "",
+		"Listen on the specified host/port. Overrides other options")
+	flag.Parse()
+	configBytes, err := ioutil.ReadFile(*configPath)
 	if err != nil {
 		return nil, err
 	}
+	config := &Config{}
 	err = json.Unmarshal(configBytes, config)
-	// overwrite with relevant flags
-	flag.StringVar(&config.Hostname, "hostname", config.Hostname,
-		"Listen on the specified hostname.")
-	if config.Hostname == "" {
-		config.Hostname = "localhost"
+	// compute hostname
+	if *host != "" {
+		config.Host = *host
+	} else {
+		if *hostname != "" {
+			config.Hostname = *hostname
+		}
+		if *port != 0 {
+			config.Port = *port
+		}
+		if config.Hostname == "" {
+			config.Hostname = "localhost"
+		}
+		if config.Port == 0 {
+			config.Port = 8080
+		}
+		if config.Host == "" {
+			config.Host = fmt.Sprintf("%s:%d", config.Hostname, config.Port)
+		}
 	}
-	flag.UintVar(&config.Port, "port", config.Port,
-		"listen on the specified port")
-	config.Host = fmt.Sprintf("%s:%d", config.Hostname, config.Port)
-	flag.StringVar(&config.Host, "host", config.Host,
-		"Listen on the specified host/port. Overwrites hostname and port options")
 	return config, nil
 }
