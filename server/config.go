@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultConfigPath = "/etc/partycast.json"
+	defaultConfigPath = "/etc/jukebox.json"
 )
 
 type Config struct {

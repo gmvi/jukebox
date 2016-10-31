@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -22,7 +22,7 @@ func init() {
 
 func ConnectDatabase() error {
 	var err error
-	db, err = sqlx.Connect("mysql", config.Database)
+	db, err = sqlx.Connect("sqlite3", config.Database)
 	if err != nil {
 		return err
 	}

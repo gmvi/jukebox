@@ -8,7 +8,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	_ "github.com/srinathgs/mysqlstore"
+	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 )
 
 const (
