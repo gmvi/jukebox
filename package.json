@@ -7,25 +7,6 @@
     "url": "https://github.com/MadhATTER6/jukebox"
   },
   "dependencies": {
-    "body-parser": "1.15.x",
-    "bookshelf": "0.9.x",
-    "commander": "2.9.x",
-    "connect-session-knex": "1.0.x",
-    "express": "4.x.x",
-    "express-session": "1.13.x",
-    "express-winston": "1.2.x",
-    "handlebars": "4.0.x",
-    "js-string-escape": "1.0.x",
-    "knex": "0.9.x",
-    "lodash": "4.x.x",
-    "mysql": "2.10.x",
-    "oboe": "2.1.x",
-    "peer": "0.2.x",
-    "socket.io": "1.4.x",
-    "superagent": "1.7.x",
-    "winston": "2.1.x"
-  },
-  "devDependencies": {
     "babel-core": "6.5.x",
     "babel-loader": "6.2.x",
     "babel-preset-react": "*",
@@ -40,8 +21,14 @@
     "react": "0.13.x",
     "reflux": "0.3.x",
     "socket.io-client": "1.4.x",
-    "sqlite3": "3.1.x",
     "style-loader": "0.13.x",
-    "webpack": "1.12.x"
+    "webpack": "1.12.x",
+    "superagent": "^2.3.0"
+  },
+  "scripts": {
+	"postinstall": "./node_modules/webpack/bin/webpack.js"
+  },
+  "engines": {
+	"node": "6.9.x"
   }
 }

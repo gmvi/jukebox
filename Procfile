@@ -1,1 +1,1 @@
-web: go run server
+web: jukebox

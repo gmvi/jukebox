@@ -1,0 +1,8 @@
+.playlist {
+  background: pink;
+  border: 2px solid black;
+  margin: 0;
+  padding: 0;
+  font-family: Roboto, arial, sans-serif;
+  font-weight: 400;
+}

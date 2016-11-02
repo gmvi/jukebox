@@ -1,0 +1,108 @@
+/* fix box sizing */
+html * {
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  font-family: Inconsolata, monospace;
+  font-weight: 700;
+  color: #31211d;
+}
+
+.center {
+  text-align: center;
+}
+
+.block-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hidden {
+  display: none;
+}
+
+.no-scroll {
+  overflow-y: hidden;
+}
+
+.scroll-container {
+  box-sizing: content-box;
+  width: 100%;
+  overflow: hidden;
+}
+
+.scroll {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.scroll.no-scrollbar {
+  box-sizing: content-box;
+  padding-right: 15px;
+}
+
+.input-group {
+  position: relative;
+}
+
+.input-group label {
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 20px;
+  margin-bottom: 5px;
+}
+
+.input-group input {
+  width: 100%;
+  height: 34px;
+  padding: 6px 12px;
+  line-height: 20px;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.input-group input:focus {
+  border-color: #66afe9;
+  outline: 0;
+}
+
+.input-group .btn {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: #fff;
+  border-color: #ccc;
+  outline: 0;
+}
+
+.input-group .btn:hover {
+  background-color: #e6e6e6;
+  border-color: #adadad;
+}
+
+.input-group .btn:active {
+  background-color: #d4d4d4;
+  border-color: #8c8c8c;
+}
+
+.overlay-container {
+  position: relative;
+}
+
+.overlay-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+}

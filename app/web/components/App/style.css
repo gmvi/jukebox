@@ -1,0 +1,16 @@
+/* general app structure */
+.Header {
+  position: fixed;
+  top: 0;
+  height: 50px;
+  width: 100%;
+}
+
+.content {
+  height: 100%;
+  padding-top: 50px;
+}
+
+.content .app {
+  position: relative;
+}

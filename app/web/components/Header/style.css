@@ -1,0 +1,18 @@
+.Header {
+  display: block;
+  width: 100%;
+  padding: 0px 70px;
+  background-color: #222;
+  color: #9d9d9d;
+  font-size: 16px;
+  line-height: 20px;
+  border-bottom: 1px solid #080808
+}
+
+.Header .brand {
+  font-size: 18px;
+  line-height: 20px;
+  padding: 15px 10px 15px 0;
+  text-decoration: none;
+  display: inline-block;
+}

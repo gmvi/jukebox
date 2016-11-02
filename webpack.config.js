@@ -20,7 +20,7 @@ var jsxLoader = _.merge({}, jsLoader, {
 });
 
 module.exports = {
-  entry: './web/entry.jsx',
+  entry: './app/web/entry.jsx',
   output: {
     path: 'assets',
     filename: 'bundle.js',

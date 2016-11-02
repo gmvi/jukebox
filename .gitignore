@@ -1,12 +1,14 @@
-node_modules
+# vendor
+node_modules/
+
+# database
+db.sqlite
+
+# build
+app/assets/
+
+# detritus
 logs/
 *.log
 *.err
 *.pid
-
-# the dev db
-db.sqlite
-
-# other dev things
-assets/bundle.js
-server/vendor

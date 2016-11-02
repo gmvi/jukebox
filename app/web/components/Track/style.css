@@ -1,0 +1,58 @@
+.track {
+  list-style: none;
+  height: 48px;
+  padding: 4px;
+  margin: 2px;
+  border: 2px solid black;
+  border-radius: 8px;
+  background: aliceblue;
+  line-height: 18px;
+  font-size: 14px;
+}
+
+.track-art-container {
+  display: inline-block;
+  float: left;
+  height: 36px;
+  width: 36px;
+  padding: 2px;
+}
+
+.track-art {
+  max-height: 32px;
+  max-width: 32px;
+}
+
+.track-main {
+  width: 100%;
+  padding-left: 40px;
+  margin-left: -36px;
+  display: inline-block;
+  padding-right: 4px;
+}
+
+.track-with-button .track-main {
+  padding-right: 40px;
+  margin-right: -36px;
+}
+
+.track-track, .track-album, .track-artist {
+  display: block;
+  height: 18px;
+}
+
+.track-album {
+  display: none;
+}
+
+.track-button {
+  float: right;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
