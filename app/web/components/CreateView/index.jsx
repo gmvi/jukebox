@@ -7,7 +7,7 @@ var React            = require('react/addons'),
 
 var stores  = require('web/stores'),
     actions = require('web/actions'),
-    strings = require('web/strings'),
+    strings = require('web/strings.json'),
     utils   = require('shared');
 
 require('./style.css');

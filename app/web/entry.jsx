@@ -3,6 +3,8 @@
 var React = require('react'),
     App   = require('components/App');
 
+// static assets
+require('static/index.html')
 // base layer
 require('console-polyfill');
 require('./transport.js');

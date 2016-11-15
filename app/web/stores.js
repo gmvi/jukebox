@@ -5,7 +5,7 @@ var _            = require('lodash'),
 
 var actions   = require('./actions'),
     transport = require('./transport'),
-    strings   = require('./strings'),
+    strings   = require('./strings.json'),
     utils     = require('shared'),
     MODE      = utils.MODE;
 var NamespacedStorage = require('./storage'),

@@ -30,7 +30,6 @@ func ConnectDatabase() error {
 	if err != nil {
 		return err
 	}
-
 	// create if not exists
 	handleErr := func(err error) {
 		if err != nil {
@@ -45,15 +44,13 @@ func ConnectDatabase() error {
 		tx.Exec(`DROP TABLE profile`)
 	}
 	_, err = tx.Exec(`CREATE TABLE profile (
-		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+		id int NOT NULL PRIMARY KEY,
 		name varchar(64) NOT NULL,
 		email varchar(64) NOT NULL UNIQUE
 	)`)
 	handleErr(err)
-	_, err = tx.Exec(`ALTER TABLE profile AUTO_INCREMENT=1`)
-	handleErr(err)
 	_, err = tx.Exec(`CREATE TABLE auth (
-		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+		id int NOT NULL PRIMARY KEY,
 		provider varchar(16) NOT NULL,
 		uid varchar(64) NOT NULL,
 		pid int,
@@ -62,27 +59,20 @@ func ConnectDatabase() error {
 		CONSTRAINT single_link UNIQUE (provider, pid)
 	)`)
 	handleErr(err)
-	_, err = tx.Exec(`ALTER TABLE auth AUTO_INCREMENT=1`)
-	handleErr(err)
 	_, err = tx.Exec(`CREATE TABLE room (
-		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+		id int NOT NULL PRIMARY KEY,
 		name varchar(128)
 	)`)
-	_, err = tx.Exec(`ALTER TABLE room AUTO_INCREMENT=1`)
-	handleErr(err)
 	handleErr(err)
 	_, err = tx.Exec(`CREATE TABLE role (
-		id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+		id int NOT NULL PRIMARY KEY,
 		rid int,
 		type varchar(16) NOT NULL,
 		FOREIGN KEY (rid) REFERENCES room(id)
 	)`)
 	handleErr(err)
-	_, err = tx.Exec(`ALTER TABLE role AUTO_INCREMENT=1`)
-	handleErr(err)
 	err = tx.Commit()
 	handleErr(err)
-
 	return nil
 }
 

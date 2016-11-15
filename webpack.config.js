@@ -3,56 +3,35 @@ var path = require('path');
 var _       = require('lodash'),
     webpack = require('webpack');
 
-var jsLoader = {
-  test: /\.js$/,
-  exclude: /(node_modules|bower_components)/,
-  loader: 'babel-loader',
-  query: {
-    plugins: ['transform-es2015-arrow-functions'],
-  }
-};
-
-var jsxLoader = _.merge({}, jsLoader, {
-  test: /\.jsx$/,
-  query: {
-    presets: ['react'],
-  }
-});
-
 module.exports = {
-  entry: './app/web/entry.jsx',
-  output: {
-    path: 'assets',
-    filename: 'bundle.js',
-  },
-  plugins: [
+  entry: [
+    path.join(__dirname, './app/web/entry.jsx') // your app's entry point
   ],
-  module: {
-    loaders: [
-      jsLoader,
-      jsxLoader,
-      { test: /\.css$/, loader: 'style!css' },
-      { test: /\.json$/, loader: 'json-loader' },
-    ],
+  devtool: process.env.WEBPACK_DEVTOOL || 'cheap-module-source-map',
+  output: {
+    path: path.join(__dirname, 'app', 'assets'),
+    filename: 'bundle.js'
   },
   resolve: {
-    extensions: ['', '.js', '.jsx', '.json'],
+    extensions: ['', '.js', '.jsx'],
     alias: {
       react: 'react/addons',
-      shared: path.join(__dirname, 'shared'),
-      web: path.join(__dirname, 'web'),
-      components: path.join(__dirname, 'web/components'),
+      shared: path.join(__dirname, 'app', 'shared'),
+      "static": path.join(__dirname, 'app', 'static'),
+      web: path.join(__dirname, 'app', 'web'),
+      components: path.join(__dirname, 'app', 'web/components')
     }
   },
-  devtool: 'cheap-module-inline-source-map',
+  module: {
+    loaders: [
+      { test: /\.jsx?$/,
+        loader: 'babel-loader',
+        exclude: /node_modules/,
+        query: { presets: ['es2015', 'react'] }
+      },
+      { test: /\.css$/, loader: 'style-loader!css-loader' },
+      { test: /\.html$/, loader: 'file?name=[name].[ext]' },
+	  { test: /\.json$/, loader: 'json-loader' }
+    ]
+  }
 };
-
-if (process.env.NODE_ENV === 'production') {
-  module.exports.plugins.push(
-    new webpack.optimize.UglifyJsPlugin({
-      compress: {
-        warnings: false,
-      },
-    })
-  );
-}

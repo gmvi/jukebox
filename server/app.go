@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/facebookgo/devrestarter"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	_ "github.com/jmoiron/sqlx"
@@ -24,7 +25,15 @@ var (
 	router *mux.Router
 )
 
+func init() {
+	devrestarter.Init()
+}
+
 func loadRoutes(router *mux.Router) {
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./app/assets/index.html")
+	})
+	router.Handle("/assets/", http.FileServer(http.Dir("./app/assets/")))
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	loadAPIRoutes(apiRouter)
 	// authRouter := router.PathPrefix("/auth").Subrouter()
@@ -53,7 +62,7 @@ func Run() {
 	// config
 	config, err = loadConfig()
 	if err != nil {
-		fmt.Printf("Fatal: failed to load Config\n%s\n", err)
+		fmt.Printf("Fatal: failed to load config\n%s\n", err)
 		os.Exit(1)
 	}
 	// app framework setup
