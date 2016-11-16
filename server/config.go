@@ -13,7 +13,7 @@ const (
 
 type Config struct {
 	Hostname     string `json:"hostname"`
-	Port         uint   `json:"port"`
+	Port         uint   `json:"port",envconfig:"port"`
 	Database     string `json:"database"`
 	CookieSecret string `json:"cookie-secret"`
 }
