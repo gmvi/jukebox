@@ -1,11 +1,37 @@
 {
 	"comment": "",
-	"ignore": "test",
 	"heroku": {
-	  "goVersion": "go1.6",
-	  "install": ["./server/..."]
+		"goVersion": "go1.6",
+		"install": [
+			"./server/..."
+		]
 	},
+	"ignore": "test",
 	"package": [
+		{
+			"checksumSHA1": "ilaFzPMZdBCmVGXSQFJ1rM2+DOw=",
+			"path": "github.com/facebookgo/devrestarter",
+			"revision": "83051c60cfbc28cf6cf56bc4d61753c02f05a9ad",
+			"revisionTime": "2015-06-12T18:57:51Z"
+		},
+		{
+			"checksumSHA1": "R7YqZ9k/RtXzCqV9cPMmsfe4oX8=",
+			"path": "github.com/facebookgo/stack",
+			"revision": "751773369052141c013c6e827a71e8f35c07879c",
+			"revisionTime": "2016-02-09T18:44:15Z"
+		},
+		{
+			"checksumSHA1": "6DAoPt7J8p6dtUo8Wz9+KjQkhCU=",
+			"path": "github.com/facebookgo/stackerr",
+			"revision": "c2fcf88613f4fc155efcb81619424db6cbb5bce0",
+			"revisionTime": "2015-06-12T19:20:56Z"
+		},
+		{
+			"checksumSHA1": "tf/NUDxrEtHOySdzLHtCAKd5Eqo=",
+			"path": "github.com/go-fsnotify/fsnotify",
+			"revision": "fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197",
+			"revisionTime": "2016-10-26T20:31:22Z"
+		},
 		{
 			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
 			"path": "github.com/gorilla/context",
@@ -43,16 +69,34 @@
 			"revisionTime": "2016-09-14T23:45:33Z"
 		},
 		{
+			"checksumSHA1": "6I9mImOHbYFvZm9pdOsQVO6yEcI=",
+			"path": "github.com/kelseyhightower/envconfig",
+			"revision": "9aca109c9aec4633fced9717c4a09ecab3d33111",
+			"revisionTime": "2016-10-19T16:24:55Z"
+		},
+		{
 			"checksumSHA1": "9FJUwn3EIgASVki+p8IHgWVC5vQ=",
 			"path": "github.com/mattn/go-sqlite3",
 			"revision": "86681de00adef4f8040947b7d35f97000fc5a230",
 			"revisionTime": "2016-10-28T14:22:18Z"
 		},
 		{
+			"checksumSHA1": "1wuE9EGcNZMuQ1fWRZ4Z/TPXjzQ=",
+			"path": "github.com/spf13/pflag",
+			"revision": "bf8481a6aebc13a8aab52e699ffe2e79771f5a3f",
+			"revisionTime": "2016-10-11T12:08:26Z"
+		},
+		{
 			"checksumSHA1": "likOl7O0BJntqagR050kkOBuY4o=",
 			"path": "golang.org/x/net/websocket",
 			"revision": "71a035914f99bb58fe82eac0f1289f10963d876c",
 			"revisionTime": "2016-09-12T21:59:12Z"
+		},
+		{
+			"checksumSHA1": "KqecwXo3OO+p4N+E9RhlHvl9I+w=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "b699b7032584f0953262cb2788a0ca19bb494703",
+			"revisionTime": "2016-11-10T11:58:56Z"
 		}
 	],
 	"rootPath": "github.com/gmvi/jukebox"
