@@ -2,8 +2,8 @@
 	"comment": "",
 	"ignore": "test",
 	"heroku": {
-	"install": "./server/...",
-	"goVersion": "go1.6"
+		"install": ["./server/..."],
+		"goVersion": "go1.6"
 	},
 	"package": [
 		{
