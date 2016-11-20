@@ -1,5 +1,5 @@
-Jukebox
-=======
+J U K E B O X
+=============
 A party playlist app. Sort of like turntable.fm or plug.dj (RIP), but meant for
 physical spaces. Built on peer-to-peer communication via WebRTC. I hope to
 support a variety of services, such as SoundCloud, YouTube, Bandcamp, and
