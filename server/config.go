@@ -2,9 +2,10 @@ package jukebox
 
 import (
 	"encoding/json"
+	"io/ioutil"
+
 	"github.com/kelseyhightower/envconfig"
 	flag "github.com/spf13/pflag"
-	"io/ioutil"
 )
 
 const (
@@ -13,7 +14,7 @@ const (
 
 type Config struct {
 	Hostname     string `json:"hostname"`
-	Port         uint   `json:"port",envconfig:"port"`
+	Port         uint   `json:"port" envconfig:"port"`
 	Database     string `json:"database"`
 	CookieSecret string `json:"cookie-secret"`
 }
@@ -45,7 +46,7 @@ var loadConfig = func() (*Config, error) {
 		return nil, err
 	}
 	config := &Config{}
-	err = envconfig.Process("myapp", config)
+	err = envconfig.Process("jukebox", config)
 	if err != nil {
 		return nil, err
 	}
