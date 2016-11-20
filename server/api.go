@@ -14,7 +14,7 @@ func loadAPIRoutes(r *mux.Router) {
 		Methods("GET").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			data, err := json.Marshal(map[string]interface{}{
-				"version": version,
+				"version": VERSION,
 			})
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)

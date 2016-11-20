@@ -1,14 +1,11 @@
 # vendor
 node_modules/
 
-# database
-db.sqlite
+# dev database
+database.sqlite
 
 # build
 app/assets/
 
-# detritus
-logs/
-*.log
-*.err
-*.pid
+# vim
+.*.sw*

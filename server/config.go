@@ -17,6 +17,7 @@ type Config struct {
 	Port         uint   `json:"port" envconfig:"port"`
 	Database     string `json:"database"`
 	CookieSecret string `json:"cookie-secret"`
+	LogDebug     bool   `json:"-" ignored:"true"`
 }
 
 func ApplyDefaults(conf, defaults *Config) {
@@ -30,10 +31,12 @@ func ApplyDefaults(conf, defaults *Config) {
 		conf.Database = defaults.Database
 	}
 	if conf.CookieSecret == "" {
+		Info.Println("Using default cookie secret")
 		conf.CookieSecret = defaults.CookieSecret
 	}
 }
 
+// load the config from env variables resorting to defaults when needed
 var loadConfig = func() (*Config, error) {
 	var err error
 	configBytes, err := ioutil.ReadFile(configDefaultsFile)
@@ -52,8 +55,9 @@ var loadConfig = func() (*Config, error) {
 	}
 	ApplyDefaults(config, defaults)
 	// define flags
-	flag.StringVar(&config.Hostname, "hostname", config.Hostname, "Listen on the specified hostname.")
+	flag.StringVar(&config.Hostname, "hostname", config.Hostname, "Listen on the specified hostname")
 	flag.UintVar(&config.Port, "port", config.Port, "listen on the specified port")
+	flag.BoolVar(&config.LogDebug, "verbose", config.LogDebug, "print debug messages")
 	flag.Parse()
 	return config, nil
 }
